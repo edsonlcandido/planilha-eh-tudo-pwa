@@ -9,7 +9,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       devOptions: {
-        enabled: false, // Set to false to disable PWA in development mode
+        enabled: true, // Set to true to enable PWA in development mode for testing A2HS
       },
       manifest: {
         name: 'Planiha Eh Tudo',

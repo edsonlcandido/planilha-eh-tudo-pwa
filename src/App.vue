@@ -44,7 +44,7 @@ router.isReady().then(() => {
   padding: 1rem;
   border-bottom: 1px solid var(--color-border);
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
