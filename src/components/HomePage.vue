@@ -166,6 +166,30 @@ const getFilePreviewUrl = (file: File) => {
       <p class="install-description">Install this app on your device for a better experience!</p>
     </div>
     
+    <!-- PWA Information Section -->
+    <div class="pwa-info-section">
+      <h3 class="pwa-info-title">💡 PWA Installation</h3>
+      <div class="pwa-info-content">
+        <p>This app is a Progressive Web App (PWA) and can be installed on your device!</p>
+        <details class="install-instructions">
+          <summary>How to install manually:</summary>
+          <div class="instructions-content">
+            <h4>🔹 Chrome/Edge (Desktop):</h4>
+            <p>Look for the install icon (📱) in the address bar or click the three dots menu → "Install app"</p>
+            
+            <h4>🔹 Chrome/Edge (Mobile):</h4>
+            <p>Tap the three dots menu → "Add to Home screen" or "Install app"</p>
+            
+            <h4>🔹 Safari (iOS):</h4>
+            <p>Tap the share button (📤) → "Add to Home Screen"</p>
+            
+            <h4>🔹 Firefox:</h4>
+            <p>Look for the install prompt or use "Add to Home screen" in the menu</p>
+          </div>
+        </details>
+      </div>
+    </div>
+    
     <div v-if="isSharedContentPresent()" class="shared-content-card">
       <h3 class="shared-content-title">Shared Content Received!</h3>
       
@@ -261,6 +285,67 @@ const getFilePreviewUrl = (file: File) => {
   margin-top: 0.75rem;
   color: var(--color-text-light);
   font-size: 0.95rem;
+}
+
+.pwa-info-section {
+  background-color: var(--color-background-light);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.pwa-info-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-dark);
+  margin-bottom: 1rem;
+}
+
+.pwa-info-content > p {
+  color: var(--color-text-light);
+  margin-bottom: 1rem;
+}
+
+.install-instructions {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 1rem;
+  background-color: var(--color-card-background);
+}
+
+.install-instructions summary {
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+  padding: 0.5rem;
+  user-select: none;
+}
+
+.install-instructions summary:hover {
+  color: var(--color-hover-blue);
+}
+
+.instructions-content {
+  margin-top: 1rem;
+  padding: 0 0.5rem;
+}
+
+.instructions-content h4 {
+  color: var(--color-text-dark);
+  font-size: 1rem;
+  margin: 1rem 0 0.5rem 0;
+}
+
+.instructions-content h4:first-child {
+  margin-top: 0;
+}
+
+.instructions-content p {
+  color: var(--color-text-light);
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
 }
 
 .shared-content-card {
