@@ -2,9 +2,13 @@
 import HelloWorld from './HelloWorld.vue'
 import { useRouter } from 'vue-router'
 import pb from '../pocketbase' // Import PocketBase instance
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 
 const router = useRouter()
+
+// PWA Install related states
+const deferredPrompt = ref<any>(null)
+const showInstallButton = ref(false)
 
 // Share Target related states
 const sharedTitle = ref('')
@@ -18,6 +22,34 @@ const uploading = ref(false)
 const logout = () => {
   pb.authStore.clear()
   router.push('/login')
+}
+
+// PWA Install functions
+const handleBeforeInstallPrompt = (e: Event) => {
+  // Prevent the mini-infobar from appearing on mobile
+  e.preventDefault()
+  // Stash the event so it can be triggered later
+  deferredPrompt.value = e
+  // Show the install button
+  showInstallButton.value = true
+}
+
+const installPWA = async () => {
+  if (!deferredPrompt.value) {
+    return
+  }
+  
+  // Show the install prompt
+  deferredPrompt.value.prompt()
+  
+  // Wait for the user to respond to the prompt
+  const { outcome } = await deferredPrompt.value.userChoice
+  
+  console.log(`User response to the install prompt: ${outcome}`)
+  
+  // Clear the deferredPrompt so it can only be used once
+  deferredPrompt.value = null
+  showInstallButton.value = false
 }
 
 // --- Share Target Handling Logic ---
@@ -88,6 +120,9 @@ const handleLaunchParams = async (launchParams: { files?: FileSystemFileHandle[]
 };
 
 onMounted(() => {
+  // Handle PWA install prompt
+  window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+  
   // Handle Web Share Target API data on component mount
   if ('launchQueue' in window && 'setConsumer' in (window as any).launchQueue) {
     (window as any).launchQueue.setConsumer(handleLaunchParams);
@@ -101,6 +136,10 @@ onMounted(() => {
     handleLaunchParams(launchParams as { text?: string, url?: string, title?: string });
   }
 });
+
+onUnmounted(() => {
+  window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+})
 
 const isSharedContentPresent = () => {
   return sharedTitle.value || sharedText.value || sharedUrl.value || sharedFiles.value.length > 0;
@@ -118,6 +157,38 @@ const getFilePreviewUrl = (file: File) => {
   <div class="home-page">
     <h1 class="page-title">Welcome Home!</h1>
     <p class="page-description">You are logged in.</p>
+    
+    <!-- PWA Install Button -->
+    <div v-if="showInstallButton" class="install-section">
+      <button @click="installPWA" class="install-button">
+        📱 Install App
+      </button>
+      <p class="install-description">Install this app on your device for a better experience!</p>
+    </div>
+    
+    <!-- PWA Information Section -->
+    <div class="pwa-info-section">
+      <h3 class="pwa-info-title">💡 PWA Installation</h3>
+      <div class="pwa-info-content">
+        <p>This app is a Progressive Web App (PWA) and can be installed on your device!</p>
+        <details class="install-instructions">
+          <summary>How to install manually:</summary>
+          <div class="instructions-content">
+            <h4>🔹 Chrome/Edge (Desktop):</h4>
+            <p>Look for the install icon (📱) in the address bar or click the three dots menu → "Install app"</p>
+            
+            <h4>🔹 Chrome/Edge (Mobile):</h4>
+            <p>Tap the three dots menu → "Add to Home screen" or "Install app"</p>
+            
+            <h4>🔹 Safari (iOS):</h4>
+            <p>Tap the share button (📤) → "Add to Home Screen"</p>
+            
+            <h4>🔹 Firefox:</h4>
+            <p>Look for the install prompt or use "Add to Home screen" in the menu</p>
+          </div>
+        </details>
+      </div>
+    </div>
     
     <div v-if="isSharedContentPresent()" class="shared-content-card">
       <h3 class="shared-content-title">Shared Content Received!</h3>
@@ -175,6 +246,106 @@ const getFilePreviewUrl = (file: File) => {
 .page-description {
   margin-bottom: 1.5rem;
   color: var(--color-text-light);
+}
+
+.install-section {
+  background-color: var(--color-card-background);
+  border: 2px solid var(--color-primary);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.install-button {
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.install-button:hover {
+  background-color: var(--color-hover-blue);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
+}
+
+.install-button:active {
+  transform: translateY(0);
+}
+
+.install-description {
+  margin-top: 0.75rem;
+  color: var(--color-text-light);
+  font-size: 0.95rem;
+}
+
+.pwa-info-section {
+  background-color: var(--color-background-light);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.pwa-info-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-dark);
+  margin-bottom: 1rem;
+}
+
+.pwa-info-content > p {
+  color: var(--color-text-light);
+  margin-bottom: 1rem;
+}
+
+.install-instructions {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 1rem;
+  background-color: var(--color-card-background);
+}
+
+.install-instructions summary {
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+  padding: 0.5rem;
+  user-select: none;
+}
+
+.install-instructions summary:hover {
+  color: var(--color-hover-blue);
+}
+
+.instructions-content {
+  margin-top: 1rem;
+  padding: 0 0.5rem;
+}
+
+.instructions-content h4 {
+  color: var(--color-text-dark);
+  font-size: 1rem;
+  margin: 1rem 0 0.5rem 0;
+}
+
+.instructions-content h4:first-child {
+  margin-top: 0;
+}
+
+.instructions-content p {
+  color: var(--color-text-light);
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
 }
 
 .shared-content-card {

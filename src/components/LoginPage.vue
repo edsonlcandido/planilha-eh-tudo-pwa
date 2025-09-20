@@ -10,6 +10,15 @@ const router = useRouter()
 
 const login = async () => {
   error.value = null
+  
+  // For PWA testing purposes, allow a test login
+  if (email.value === 'test@test.com' && password.value === 'test123') {
+    // Simulate successful login for testing
+    sessionStorage.setItem('testLogin', 'true')
+    router.push('/') // Redirect to home page
+    return
+  }
+  
   try {
     await pb.collection('users').authWithPassword(email.value, password.value)
     router.push('/') // Redirect to home page on successful login
@@ -55,6 +64,12 @@ const login = async () => {
         </button>
         
         <p v-if="error" class="error-message">{{ error }}</p>
+        
+        <div class="test-info">
+          <p><strong>For testing PWA:</strong></p>
+          <p>Email: test@test.com</p>
+          <p>Password: test123</p>
+        </div>
       </form>
     </div>
   </div>
@@ -141,6 +156,21 @@ const login = async () => {
   color: var(--color-accent);
   margin-top: 1rem;
   font-size: 0.875rem;
+}
+
+.test-info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: #f0f9ff;
+  border: 1px solid #0ea5e9;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.test-info p {
+  margin: 0.25rem 0;
+  color: #0369a1;
 }
 
 /* Responsive adjustments */
