@@ -4,6 +4,11 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: '/pwa/',
+  build: {
+    outDir: 'pwa',
+    emptyOutDir: true,
+  },
   plugins: [
     vue(),
     VitePWA({
@@ -14,18 +19,18 @@ export default defineConfig({
       manifest: {
         name: 'Planiha Eh Tudo',
         short_name: 'Planiha',
-        description: 'Your personal financial planner',
+        description: 'Planilha Eh tudo',
         theme_color: '#3B82F6',
         background_color: '#F9FAFB',
         display: 'standalone',
-        start_url: '/',
+        start_url: './',
         icons: [
-          { src: 'pwa-192x192.svg', sizes: '192x192', type: 'image/svg+xml' },
-          { src: 'pwa-512x512.svg', sizes: '512x512', type: 'image/svg+xml' },
-          { src: 'pwa-512x512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' },
+          { src: './pwa-192x192.svg', sizes: '192x192', type: 'image/svg+xml' },
+          { src: './pwa-512x512.svg', sizes: '512x512', type: 'image/svg+xml' },
+          { src: './pwa-512x512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' },
         ],
         share_target: {
-          action: '/',
+          action: './',
           method: 'POST',
           enctype: 'multipart/form-data',
           params: {
