@@ -38,15 +38,15 @@ const installPWA = async () => {
   if (!deferredPrompt.value) {
     return
   }
-  
+
   // Show the install prompt
   deferredPrompt.value.prompt()
-  
+
   // Wait for the user to respond to the prompt
   const { outcome } = await deferredPrompt.value.userChoice
-  
+
   console.log(`User response to the install prompt: ${outcome}`)
-  
+
   // Clear the deferredPrompt so it can only be used once
   deferredPrompt.value = null
   showInstallButton.value = false
@@ -122,7 +122,7 @@ const handleLaunchParams = async (launchParams: { files?: FileSystemFileHandle[]
 onMounted(() => {
   // Handle PWA install prompt
   window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-  
+
   // Handle Web Share Target API data on component mount
   if ('launchQueue' in window && 'setConsumer' in (window as any).launchQueue) {
     (window as any).launchQueue.setConsumer(handleLaunchParams);
@@ -148,7 +148,7 @@ const isSharedContentPresent = () => {
 const getFilePreviewUrl = (file: File) => {
   if (file.type.startsWith('image/')) {
     return URL.createObjectURL(file);
-  } 
+  }
   return null;
 };
 </script>
@@ -157,7 +157,7 @@ const getFilePreviewUrl = (file: File) => {
   <div class="home-page">
     <h1 class="page-title">Welcome Home!</h1>
     <p class="page-description">You are logged in.</p>
-    
+
     <!-- PWA Install Button -->
     <div v-if="showInstallButton" class="install-section">
       <button @click="installPWA" class="install-button">
@@ -165,7 +165,7 @@ const getFilePreviewUrl = (file: File) => {
       </button>
       <p class="install-description">Install this app on your device for a better experience!</p>
     </div>
-    
+
     <!-- PWA Information Section -->
     <div class="pwa-info-section">
       <h3 class="pwa-info-title">💡 PWA Installation</h3>
@@ -176,63 +176,64 @@ const getFilePreviewUrl = (file: File) => {
           <div class="instructions-content">
             <h4>🔹 Chrome/Edge (Desktop):</h4>
             <p>Look for the install icon (📱) in the address bar or click the three dots menu → "Install app"</p>
-            
+
             <h4>🔹 Chrome/Edge (Mobile):</h4>
             <p>Tap the three dots menu → "Add to Home screen" or "Install app"</p>
-            
+
             <h4>🔹 Safari (iOS):</h4>
             <p>Tap the share button (📤) → "Add to Home Screen"</p>
-            
+
             <h4>🔹 Firefox:</h4>
             <p>Look for the install prompt or use "Add to Home screen" in the menu</p>
           </div>
         </details>
       </div>
     </div>
-    
+
     <div v-if="isSharedContentPresent()" class="shared-content-card">
       <h3 class="shared-content-title">Shared Content Received!</h3>
-      
+
       <p v-if="sharedTitle"><strong>Title:</strong> {{ sharedTitle }}</p>
       <p v-if="sharedText"><strong>Text:</strong> {{ sharedText }}</p>
-      <p v-if="sharedUrl"><strong>URL:</strong> <a :href="sharedUrl" target="_blank" class="shared-link">{{ sharedUrl }}</a></p>
-      
+      <p v-if="sharedUrl"><strong>URL:</strong> <a :href="sharedUrl" target="_blank" class="shared-link">{{ sharedUrl
+          }}</a></p>
+
       <div v-if="sharedFiles.length > 0" class="shared-files-section">
         <h4 class="shared-files-heading">Files Shared:</h4>
         <ul class="file-list">
           <li v-for="file in sharedFiles" :key="file.name" class="file-item">
-            <span class="file-name">{{ file.name }}</span> 
+            <span class="file-name">{{ file.name }}</span>
             <span class="file-type">({{ file.type }})</span>
-            <img v-if="getFilePreviewUrl(file)" :src="getFilePreviewUrl(file)!" alt="File preview" class="file-preview-image" />
+            <img v-if="getFilePreviewUrl(file)" :src="getFilePreviewUrl(file)!" alt="File preview"
+              class="file-preview-image" />
             <span v-else-if="file.type === 'application/pdf'" class="file-icon">📄 PDF</span>
             <span v-else class="file-icon">📁 File</span>
           </li>
         </ul>
-        
+
         <div v-if="uploading" class="upload-status-message upload-progress">
           Uploading file...
         </div>
         <div v-else-if="uploadResponse" class="upload-status-message upload-success">
-          Upload Successful! <br/> {{ uploadResponse }}
+          Upload Successful! <br /> {{ uploadResponse }}
         </div>
         <div v-else-if="uploadError" class="upload-status-message upload-error">
-          Upload Error: <br/> {{ uploadError }}
+          Upload Error: <br /> {{ uploadError }}
         </div>
       </div>
-      
+
       <p class="shared-feedback">This content was shared with your PWA!</p>
     </div>
-    
+
     <hr class="separator" />
-    
-    <HelloWorld msg="Vite + Vue" />
   </div>
 </template>
 
 <style scoped>
 .home-page {
   padding: 1.5rem 1rem;
-  max-width: 800px; /* Constrain content width */
+  max-width: 800px;
+  /* Constrain content width */
   margin: 0 auto;
 }
 
@@ -302,7 +303,7 @@ const getFilePreviewUrl = (file: File) => {
   margin-bottom: 1rem;
 }
 
-.pwa-info-content > p {
+.pwa-info-content>p {
   color: var(--color-text-light);
   margin-bottom: 1rem;
 }
@@ -351,7 +352,8 @@ const getFilePreviewUrl = (file: File) => {
 .shared-content-card {
   background-color: var(--color-card-background);
   border: 1px solid var(--color-border);
-  border-left: 5px solid var(--color-primary); /* Highlight with primary color */
+  border-left: 5px solid var(--color-primary);
+  /* Highlight with primary color */
   padding: 1rem;
   border-radius: 6px;
   margin-bottom: 2rem;
@@ -431,18 +433,24 @@ const getFilePreviewUrl = (file: File) => {
 }
 
 .upload-progress {
-  background-color: #e0f2fe; /* Light blue */
-  color: #1e40af; /* Dark blue */
+  background-color: #e0f2fe;
+  /* Light blue */
+  color: #1e40af;
+  /* Dark blue */
 }
 
 .upload-success {
-  background-color: #d1fae5; /* Light green */
-  color: #065f46; /* Dark green */
+  background-color: #d1fae5;
+  /* Light green */
+  color: #065f46;
+  /* Dark green */
 }
 
 .upload-error {
-  background-color: #fee2e2; /* Light red */
-  color: #991b1b; /* Dark red */
+  background-color: #fee2e2;
+  /* Light red */
+  color: #991b1b;
+  /* Dark red */
 }
 
 .shared-feedback {
@@ -462,6 +470,7 @@ const getFilePreviewUrl = (file: File) => {
   .home-page {
     padding: 2rem;
   }
+
   .page-title {
     font-size: 2.25rem;
   }

@@ -65,11 +65,6 @@ const login = async () => {
         
         <p v-if="error" class="error-message">{{ error }}</p>
         
-        <div class="test-info">
-          <p><strong>For testing PWA:</strong></p>
-          <p>Email: test@test.com</p>
-          <p>Password: test123</p>
-        </div>
       </form>
     </div>
   </div>
