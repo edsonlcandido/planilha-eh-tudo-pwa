@@ -155,36 +155,36 @@ const getFilePreviewUrl = (file: File) => {
 
 <template>
   <div class="home-page">
-    <h1 class="page-title">Welcome Home!</h1>
-    <p class="page-description">You are logged in.</p>
+    <h1 class="page-title">Bem vindo ao nosso webapp!</h1>
+    <p class="page-description">Você está logado.</p>
 
     <!-- PWA Install Button -->
     <div v-if="showInstallButton" class="install-section">
       <button @click="installPWA" class="install-button">
-        📱 Install App
+        📱 Instalar App
       </button>
-      <p class="install-description">Install this app on your device for a better experience!</p>
+      <p class="install-description">Instale este aplicativo em seu dispositivo para uma melhor experiência!</p>
     </div>
 
     <!-- PWA Information Section -->
     <div class="pwa-info-section">
-      <h3 class="pwa-info-title">💡 PWA Installation</h3>
+      <h3 class="pwa-info-title">💡 PWA Instalação</h3>
       <div class="pwa-info-content">
-        <p>This app is a Progressive Web App (PWA) and can be installed on your device!</p>
+        <p>Este aplicativo é um Progressive Web App (PWA) e pode ser instalado em seu dispositivo!</p>
         <details class="install-instructions">
-          <summary>How to install manually:</summary>
+          <summary>Como instalar manualmente:</summary>
           <div class="instructions-content">
             <h4>🔹 Chrome/Edge (Desktop):</h4>
-            <p>Look for the install icon (📱) in the address bar or click the three dots menu → "Install app"</p>
+            <p>Procure o ícone de instalação (📱) na barra de endereços ou clique no menu de três pontos → "Instalar app"</p>
 
             <h4>🔹 Chrome/Edge (Mobile):</h4>
-            <p>Tap the three dots menu → "Add to Home screen" or "Install app"</p>
+            <p>Toque no menu de três pontos → "Adicionar à tela inicial" ou "Instalar app"</p>
 
             <h4>🔹 Safari (iOS):</h4>
-            <p>Tap the share button (📤) → "Add to Home Screen"</p>
+            <p>Toque no botão de compartilhamento (📤) → "Adicionar à Tela de Início"</p>
 
             <h4>🔹 Firefox:</h4>
-            <p>Look for the install prompt or use "Add to Home screen" in the menu</p>
+            <p>Procure o prompt de instalação ou use "Adicionar à tela inicial" no menu</p>
           </div>
         </details>
       </div>
