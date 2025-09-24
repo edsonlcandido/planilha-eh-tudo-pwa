@@ -3,6 +3,7 @@ import HelloWorld from './HelloWorld.vue'
 import { useRouter } from 'vue-router'
 import pb from '../pocketbase' // Import PocketBase instance
 import { ref, onMounted, onUnmounted } from 'vue'
+import UploadArea from './UploadArea.vue'
 
 const router = useRouter()
 
@@ -165,6 +166,8 @@ const getFilePreviewUrl = (file: File) => {
       </button>
       <p class="install-description">Instale este aplicativo em seu dispositivo para uma melhor experiência!</p>
     </div>
+
+    <UploadArea/>
 
     <!-- PWA Information Section -->
     <div class="pwa-info-section">
