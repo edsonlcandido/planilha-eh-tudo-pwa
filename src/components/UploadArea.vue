@@ -17,21 +17,16 @@ const uploadStatus = ref<'idle' | 'uploading' | 'analyzing' | 'success' | 'error
 const uploadMessage = ref('');
 const lancamento = ref<LancamentoResponse | null>(null);
 
+const uploadCollection = 'uploads';
+const fileFieldName = 'file';
+const defaultStatus = 'uploaded';
+const webhookUrl = 'https://ehtudo-n8n.pfdgdz.easypanel.host/webhook-test/v1/planilha-eh-tudo-analise-upload';
 
-const acceptedFileTypes = '.jpg,.jpeg,.png,.gif,.pdf';
+const currentUserId = computed(() => pb.authStore.model?.id || '');
 
-// Manipula a seleção de arquivos pelo input file
-const handleFileSelect = (e: Event) => {
-  const input = e.target as HTMLInputElement;
-  if (input.files && input.files.length > 0) {
-    // Limpa arquivos anteriores
-    clearFiles();
-    
-    // Adiciona apenas o primeiro arquivo (vamos analisar um por vez)
-    files.value.push(input.files[0]);
-  }
-};
 
+
+const acceptedFileTypes = '.jpg,.jpeg,.pdf';
 
 // Limpa todos os arquivos e estado
 const clearFiles = () => {
@@ -88,6 +83,68 @@ const removeFile = () => {
   lancamento.value = null;
 };
 
+const notifyWebhook = async (uploadUri: string) => {
+  const response = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 'upload-uri': uploadUri }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Falha ao notificar o webhook.');
+  }
+};
+
+const uploadFile = async () => {
+  if (!files.value.length) {
+    uploadStatus.value = 'error';
+    uploadMessage.value = 'Selecione um arquivo antes de enviar.';
+    return;
+  }
+
+  if (!currentUserId.value) {
+    uploadStatus.value = 'error';
+    uploadMessage.value = 'Faça login para enviar arquivos.';
+    return;
+  }
+
+  uploadStatus.value = 'uploading';
+  uploadMessage.value = 'Enviando arquivo para o PocketBase...';
+
+  const formData = new FormData();
+  formData.append('user_id', currentUserId.value);
+  formData.append('status', defaultStatus);
+  formData.append(fileFieldName, files.value[0]);
+
+  try {
+    const record = await pb.collection(uploadCollection).create(formData);
+    const fileName = (record as Record<string, any>)[fileFieldName] as string | undefined;
+
+    if (!fileName) {
+      throw new Error('PocketBase não retornou o arquivo.');
+    }
+
+    const uploadUri = pb.files.getUrl(record, fileName);
+    await notifyWebhook(uploadUri);
+
+    uploadStatus.value = 'success';
+    uploadMessage.value = 'Upload concluído e webhook notificado.';
+  } catch (error: any) {
+    uploadStatus.value = 'error';
+    uploadMessage.value = error?.message || 'Falha ao enviar o arquivo.';
+  }
+};
+
+const handleFileSelect = (e: Event) => {
+  const input = e.target as HTMLInputElement;
+  if (input.files && input.files.length > 0) {
+    clearFiles();
+    files.value.push(input.files[0]);
+    uploadMessage.value = '';
+    uploadStatus.value = 'idle';
+  }
+};
+
 </script>
 <template>
     <div class="upload-area">
@@ -101,48 +158,43 @@ const removeFile = () => {
         <div class="upload-icon">📄</div>
         <p>Selecione um documento para análise</p>
         <label class="file-select-button">
-          Selecionar Documento
-          <input 
-            type="file" 
-            :accept="acceptedFileTypes"
-            @change="handleFileSelect" 
-            class="file-input"
-          >
+          Escolher arquivo
+          <input class="file-input" type="file" accept=".jpg,.jpeg,.pdf" @change="handleFileSelect">
         </label>
-        <p class="file-types-hint">Formatos aceitos: JPG, PNG, GIF, PDF</p>
+        <p class="file-types-hint">Formatos aceitos: JPG, PDF</p>
       </div>
 
       <!-- Arquivo selecionado -->
       <div v-else class="file-list">
         <div class="file-item">
           <div class="file-preview">
-            <img 
-              v-if="isImage(files[0])" 
-              :src="getFilePreviewUrl(files[0])" 
-              alt="Preview" 
-              class="file-thumbnail"
-            >
-            <div v-else-if="files[0].type === 'application/pdf'" class="file-icon">
-              📄
-            </div>
-            <div v-else class="file-icon">
-              📁
-            </div>
+            <img v-if="getFilePreviewUrl(files[0])" :src="getFilePreviewUrl(files[0])" class="file-thumbnail" alt="preview" />
+            <span v-else class="file-icon">📄</span>
           </div>
           <div class="file-info">
-            <div class="file-name">{{ files[0].name }}</div>
+            <p class="file-name">{{ files[0].name }}</p>
             <div class="file-meta">
-              <span class="file-type">{{ files[0].type.split('/')[1] }}</span>
-              <span class="file-size">{{ formatFileSize(files[0].size) }}</span>
+              <span>{{ files[0].type || 'Formato desconhecido' }}</span>
+              <span>{{ formatFileSize(files[0].size) }}</span>
             </div>
           </div>
-          <button @click="removeFile" class="remove-file-button">
-            ✕
-          </button>
+          <button class="remove-file-button" type="button" @click="removeFile">✕</button>
         </div>
+
+        <button class="submit-button" type="button" :disabled="uploadStatus === 'uploading'" @click="uploadFile">
+          {{ uploadStatus === 'uploading' ? 'Enviando...' : 'Enviar para PocketBase' }}
+        </button>
       </div>
     </div>
-    
+
+    <div v-if="uploadMessage" class="status-message"
+         :class="{
+           'upload-progress': uploadStatus === 'uploading',
+           'upload-success': uploadStatus === 'success',
+           'upload-error': uploadStatus === 'error'
+         }">
+      {{ uploadMessage }}
+    </div>
 </template>
 <style scoped>
 .upload-area {
