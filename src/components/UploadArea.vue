@@ -20,13 +20,13 @@ const lancamento = ref<LancamentoResponse | null>(null);
 const uploadCollection = 'uploads';
 const fileFieldName = 'file';
 const defaultStatus = 'uploaded';
-const webhookUrl = 'https://ehtudo-n8n.pfdgdz.easypanel.host/webhook-test/v1/planilha-eh-tudo-analise-upload';
+const webhookUrl = import.meta.env.VITE_WEBHOOK_URL;
 
 const currentUserId = computed(() => pb.authStore.model?.id || '');
 
 
 
-const acceptedFileTypes = '.jpg,.jpeg,.pdf';
+const acceptedFileTypes = '.jpg,.jpeg,.pdf,.png';
 
 // Limpa todos os arquivos e estado
 const clearFiles = () => {
@@ -161,7 +161,7 @@ const handleFileSelect = (e: Event) => {
           Escolher arquivo
           <input class="file-input" type="file" accept=".jpg,.jpeg,.pdf" @change="handleFileSelect">
         </label>
-        <p class="file-types-hint">Formatos aceitos: JPG, PDF</p>
+        <p class="file-types-hint">Formatos aceitos: JPG, PDF, PNG</p>
       </div>
 
       <!-- Arquivo selecionado -->
