@@ -23,6 +23,7 @@ const isLoading = ref(true)
 
 const logout = () => {
   pb.authStore.clear()
+  sessionStorage.removeItem('testLogin')
   router.push('/login')
 }
 
@@ -31,6 +32,14 @@ const verificarToken = async () => {
   isLoading.value = true
   
   try {
+    // Primeiro verifica se há um login de teste no sessionStorage
+    const testLogin = sessionStorage.getItem('testLogin')
+    if (testLogin === 'true') {
+      console.log('Login de teste válido')
+      isLoading.value = false
+      return
+    }
+    
     // Verifica se há um token na auth store
     if (!pb.authStore.token) {
       // Se não há token, redireciona para login
@@ -48,6 +57,7 @@ const verificarToken = async () => {
     console.error('Erro na verificação do token:', error)
     // Token inválido ou erro na verificação - limpa o token e redireciona para login
     pb.authStore.clear()
+    sessionStorage.removeItem('testLogin')
     router.push('/login')
   }
 }
