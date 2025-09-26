@@ -1,28 +1,27 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import pb from '../pocketbase';
-
-interface LancamentoResponse {
-  data: number;     // data em formato float (ex: 45125.45)
-  conta: string;    // nome da conta (ex: "NUBANK")
-  valor: number;    // valor do lançamento (ex: 15.00)
-  descricao: string; // descrição do lançamento (ex: "compra no mercado")
-  categoria: string; // categoria do lançamento (ex: "Supermercado")
-  orcamento: number; // código do orçamento (ex: 4125)
-  obs: string;      // observações adicionais
-}
+import CartaoItem from './CartaoItem.vue';
+import type { CartaoData, ProcessImageResponse } from '../types';
 
 const files = ref<File[]>([]);
 const uploadStatus = ref<'idle' | 'uploading' | 'analyzing' | 'success' | 'error'>('idle');
 const uploadMessage = ref('');
-const lancamento = ref<LancamentoResponse | null>(null);
+const cartoes = ref<CartaoData[]>([]);
+const recordId = ref<string | null>(null); // Para armazenar o ID do registro do PocketBase
 
 const uploadCollection = 'uploads';
 const fileFieldName = 'file';
-const defaultStatus = 'uploaded';
 const webhookUrl = import.meta.env.VITE_WEBHOOK_URL;
 
-const currentUserId = computed(() => pb.authStore.model?.id || '');
+const currentUserId = computed(() => {
+  // Para login de teste, usa um ID fictício
+  const testLogin = sessionStorage.getItem('testLogin')
+  if (testLogin === 'true') {
+    return 'test-user-id'
+  }
+  return pb.authStore.model?.id || ''
+});
 
 
 
@@ -34,7 +33,8 @@ const clearFiles = () => {
   files.value = [];
   uploadStatus.value = 'idle';
   uploadMessage.value = '';
-  lancamento.value = null;
+  cartoes.value = [];
+  recordId.value = null;
 };
 
 // Limpa as URLs de objeto criadas para evitar vazamento de memória
@@ -80,18 +80,96 @@ const formatFileSize = (bytes: number): string => {
 const removeFile = () => {
   clearObjectURLs();
   files.value = [];
-  lancamento.value = null;
+  cartoes.value = [];
+  recordId.value = null;
 };
 
-const notifyWebhook = async (uploadUri: string) => {
-  const response = await fetch(webhookUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 'upload-uri': uploadUri }),
-  });
+// Função para simular resposta do backend durante desenvolvimento/teste
+const mockBackendResponse = (): CartaoData[] => {
+  return [
+    {
+      data: "23/09/2025 15:02",
+      conta: "NU PAGAMENTOS - IP",
+      valor: 250,
+      descricao: "CLINICA FRANCO PEGHINI LTDA",
+      categoria: "Outros",
+      orcamento: "23/09/2025",
+      observacao: "Transferência via Pix para Clinica Franco Peghini Ltda"
+    },
+    {
+      data: "22/09/2025 10:30",
+      conta: "BANCO DO BRASIL",
+      valor: -45.50,
+      descricao: "SUPERMERCADO EXEMPLO",
+      categoria: "Alimentação",
+      orcamento: "22/09/2025",
+      observacao: "Compra no supermercado - débito automático"
+    },
+    {
+      data: "21/09/2025 14:15",
+      conta: "CAIXA ECONOMICA",
+      valor: 1200,
+      descricao: "SALARIO SETEMBRO",
+      categoria: "Receita",
+      orcamento: "21/09/2025",
+      observacao: "Crédito de salário mensal"
+    }
+  ];
+};
 
-  if (!response.ok) {
-    throw new Error('Falha ao notificar o webhook.');
+// Aguarda o processamento do webhook e obtém os cartões processados
+const waitForProcessing = async (recordId: string): Promise<CartaoData[]> => {
+  const maxAttempts = 30; // 30 tentativas (5 minutos máximo)
+  const delayMs = 10000; // 10 segundos entre tentativas
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      // Busca o registro atualizado no PocketBase
+      const record = await pb.collection(uploadCollection).getOne(recordId);
+      
+      // Verifica se o status mudou para "processed"
+      if (record.status === 'processed' && record.analysis_result) {
+        // Parse do resultado da análise
+        const analysisResult = typeof record.analysis_result === 'string' 
+          ? JSON.parse(record.analysis_result) 
+          : record.analysis_result;
+        
+        if (analysisResult && Array.isArray(analysisResult)) {
+          return analysisResult as CartaoData[];
+        } else if (analysisResult && analysisResult.cartoes && Array.isArray(analysisResult.cartoes)) {
+          return analysisResult.cartoes as CartaoData[];
+        } else {
+          throw new Error('Formato de resposta inválido do backend');
+        }
+      } else if (record.status === 'error') {
+        throw new Error(record.error_message || 'Erro no processamento da imagem');
+      }
+      
+      // Aguarda antes da próxima tentativa
+      if (attempt < maxAttempts) {
+        uploadMessage.value = `Analisando documento... (tentativa ${attempt}/${maxAttempts})`;
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    } catch (error: any) {
+      console.error(`Erro na tentativa ${attempt}:`, error);
+      if (attempt === maxAttempts) {
+        throw error;
+      }
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  
+  throw new Error('Timeout: Processamento demorou mais que o esperado');
+};
+
+// Apaga a imagem do PocketBase após o processamento
+const deleteUploadedImage = async (recordId: string): Promise<void> => {
+  try {
+    await pb.collection(uploadCollection).delete(recordId);
+    console.log('Imagem apagada com sucesso do PocketBase');
+  } catch (error: any) {
+    console.error('Erro ao apagar imagem:', error);
+    // Não propaga o erro pois os cartões já foram criados
   }
 };
 
@@ -108,30 +186,94 @@ const uploadFile = async () => {
     return;
   }
 
-  uploadStatus.value = 'uploading';
-  uploadMessage.value = 'Enviando arquivo para o PocketBase...';
+  // Limpa cartões anteriores
+  cartoes.value = [];
+  recordId.value = null;
 
+  uploadStatus.value = 'uploading';
+  uploadMessage.value = 'Enviando arquivo para processamento...';
+
+  // Para desenvolvimento/teste: usar dados mockados
+  const isDevelopment = import.meta.env.DEV || sessionStorage.getItem('testLogin') === 'true';
+  
+  if (isDevelopment) {
+    // Simula o processo de upload e análise
+    uploadStatus.value = 'analyzing';
+    uploadMessage.value = 'Analisando documento...';
+    
+    // Simula tempo de processamento
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Obtém dados mockados
+    const cartaosList = mockBackendResponse();
+    
+    // Armazena os cartões no estado
+    cartoes.value = cartaosList;
+    
+    // Remove o arquivo local da interface
+    clearObjectURLs();
+    files.value = [];
+    
+    uploadStatus.value = 'success';
+    uploadMessage.value = `${cartaosList.length} cartão(ões) criado(s) com sucesso!`;
+    return;
+  }
+
+  // Fluxo real para produção
   const formData = new FormData();
   formData.append('user_id', currentUserId.value);
-  formData.append('status', defaultStatus);
+  formData.append('status', 'uploaded'); // Status inicial
   formData.append(fileFieldName, files.value[0]);
 
   try {
+    // 1. Upload do arquivo para o PocketBase
     const record = await pb.collection(uploadCollection).create(formData);
+    recordId.value = record.id;
     const fileName = (record as Record<string, any>)[fileFieldName] as string | undefined;
 
     if (!fileName) {
       throw new Error('PocketBase não retornou o arquivo.');
     }
 
+    // 2. Notifica o webhook com a URL do arquivo
     const uploadUri = pb.files.getUrl(record, fileName);
-    await notifyWebhook(uploadUri);
+    uploadStatus.value = 'analyzing';
+    uploadMessage.value = 'Enviando para análise...';
+    
+    const webhookResponse = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        'upload-uri': uploadUri,
+        'record-id': record.id
+      }),
+    });
 
+    if (!webhookResponse.ok) {
+      throw new Error('Falha ao iniciar processamento da imagem.');
+    }
+
+    // 3. Aguarda o processamento e obtém os cartões
+    uploadMessage.value = 'Analisando documento...';
+    const cartaosList = await waitForProcessing(record.id);
+    
+    // 4. Armazena os cartões no estado
+    cartoes.value = cartaosList;
+    
+    // 5. Apaga a imagem do PocketBase
+    await deleteUploadedImage(record.id);
+    
+    // 6. Remove o arquivo local da interface
+    clearObjectURLs();
+    files.value = [];
+    
     uploadStatus.value = 'success';
-    uploadMessage.value = 'Upload concluído e webhook notificado.';
+    uploadMessage.value = `${cartaosList.length} cartão(ões) criado(s) com sucesso!`;
+    
   } catch (error: any) {
     uploadStatus.value = 'error';
-    uploadMessage.value = error?.message || 'Falha ao enviar o arquivo.';
+    uploadMessage.value = error?.message || 'Falha ao processar o arquivo.';
+    console.error('Erro no upload:', error);
   }
 };
 
@@ -154,7 +296,7 @@ const handleFileSelect = (e: Event) => {
 
         <!-- Área de seleção de arquivos simplificada -->
     <div class="file-selection-container">
-      <div v-if="files.length === 0" class="file-selection">
+      <div v-if="files.length === 0 && cartoes.length === 0" class="file-selection">
         <div class="upload-icon">📄</div>
         <p>Selecione um documento para análise</p>
         <label class="file-select-button">
@@ -165,7 +307,7 @@ const handleFileSelect = (e: Event) => {
       </div>
 
       <!-- Arquivo selecionado -->
-      <div v-else class="file-list">
+      <div v-else-if="files.length > 0" class="file-list">
         <div class="file-item">
           <div class="file-preview">
             <img v-if="getFilePreviewUrl(files[0])" :src="getFilePreviewUrl(files[0])" class="file-thumbnail" alt="preview" />
@@ -181,19 +323,38 @@ const handleFileSelect = (e: Event) => {
           <button class="remove-file-button" type="button" @click="removeFile">✕</button>
         </div>
 
-        <button class="submit-button" type="button" :disabled="uploadStatus === 'uploading'" @click="uploadFile">
-          {{ uploadStatus === 'uploading' ? 'Enviando...' : 'Enviar para PocketBase' }}
+        <button 
+          class="submit-button" 
+          type="button" 
+          :disabled="uploadStatus === 'uploading' || uploadStatus === 'analyzing'" 
+          @click="uploadFile"
+        >
+          <span v-if="uploadStatus === 'uploading'">Enviando...</span>
+          <span v-else-if="uploadStatus === 'analyzing'">Analisando...</span>
+          <span v-else>Analisar Documento</span>
         </button>
       </div>
     </div>
 
+    <!-- Status message -->
     <div v-if="uploadMessage" class="status-message"
          :class="{
-           'upload-progress': uploadStatus === 'uploading',
+           'upload-progress': uploadStatus === 'uploading' || uploadStatus === 'analyzing',
            'upload-success': uploadStatus === 'success',
            'upload-error': uploadStatus === 'error'
          }">
       {{ uploadMessage }}
+    </div>
+
+    <!-- Cartões processados -->
+    <div v-if="cartoes.length > 0" class="cartoes-section">
+      <div class="cartoes-header">
+        <h3>Cartões Processados</h3>
+        <button class="new-analysis-button" @click="clearFiles">Nova Análise</button>
+      </div>
+      <div class="cartoes-list">
+        <CartaoItem v-for="(cartao, index) in cartoes" :key="index" :cartao="cartao" />
+      </div>
     </div>
 </template>
 <style scoped>
@@ -459,5 +620,47 @@ const handleFileSelect = (e: Event) => {
   .result-field.full-width {
     grid-column: span 1;
   }
+}
+
+.cartoes-section {
+  margin-top: 2rem;
+}
+
+.cartoes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--color-border);
+}
+
+.cartoes-header h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-dark);
+  margin: 0;
+}
+
+.new-analysis-button {
+  background-color: var(--color-primary);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border: none;
+}
+
+.new-analysis-button:hover {
+  background-color: var(--color-hover-blue);
+}
+
+.cartoes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 </style>
