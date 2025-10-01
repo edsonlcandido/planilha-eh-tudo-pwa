@@ -10,6 +10,9 @@ COPY package*.json ./
 # Install app dependencies
 RUN npm install
 
+# Bundle app source
+COPY . .
+
 # Build vite
 CMD [ "npm", "run", "build" ]
 
