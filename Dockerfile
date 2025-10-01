@@ -13,10 +13,11 @@ RUN npm install
 # Bundle app source
 COPY . .
 
+EXPOSE 4173
+
 # Build vite
 CMD [ "npm", "run", "build" ]
 
 # Preview vite
 CMD [ "npm", "run", "preview", "--host" ]
 
-EXPOSE 4173
