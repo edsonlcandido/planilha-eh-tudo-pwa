@@ -14,4 +14,4 @@ RUN npm install
 CMD [ "npm", "run", "build" ]
 
 # Preview vite
-CMD [ "npm", "run", "preview" ]
+CMD [ "npm", "run", "preview", "--host" ]
