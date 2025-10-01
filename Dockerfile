@@ -18,3 +18,5 @@ CMD [ "npm", "run", "build" ]
 
 # Preview vite
 CMD [ "npm", "run", "preview", "--host" ]
+
+EXPOSE 4173
