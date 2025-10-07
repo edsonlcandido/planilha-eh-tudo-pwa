@@ -5,6 +5,30 @@ import { VitePWA } from 'vite-plugin-pwa'
 // https://vitejs.dev/config/
 export default defineConfig({
   base: '/pwa/',
+  // Dev server options (proxy to avoid CORS when calling PocketBase at :8090)
+  server: {
+    proxy: {
+      // Proxy any request starting with /api to the local PocketBase instance
+      // and remove the /api prefix before forwarding.
+      // Example: import.meta.env.VITE_API_URL can be set to '/api/' in development.
+      '/api': {
+        target: 'http://localhost:8090',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: 4173,
+    strictPort: true,
+    allowedHosts: [
+      'eh-tudo-planilha-pwa.aiyfgd.easypanel.host',
+      '.easypanel.host', // Permite qualquer subdomínio do easypanel.host
+      'localhost'
+    ],
+  },
   build: {
     outDir: 'pwa',
     emptyOutDir: true,

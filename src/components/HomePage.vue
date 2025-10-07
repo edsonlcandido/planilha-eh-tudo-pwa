@@ -3,6 +3,7 @@ import HelloWorld from './HelloWorld.vue'
 import { useRouter } from 'vue-router'
 import pb from '../pocketbase' // Import PocketBase instance
 import { ref, onMounted, onUnmounted } from 'vue'
+import UploadArea from './UploadArea.vue'
 
 const router = useRouter()
 
@@ -18,10 +19,47 @@ const sharedFiles = ref<File[]>([])
 const uploadResponse = ref<any>(null)
 const uploadError = ref<string | null>(null)
 const uploading = ref(false)
+const isLoading = ref(true)
 
 const logout = () => {
   pb.authStore.clear()
+  sessionStorage.removeItem('testLogin')
   router.push('/login')
+}
+
+// Verificação da validade do token
+const verificarToken = async () => {
+  isLoading.value = true
+  
+  try {
+    // Primeiro verifica se há um login de teste no sessionStorage
+    const testLogin = sessionStorage.getItem('testLogin')
+    if (testLogin === 'true') {
+      console.log('Login de teste válido')
+      isLoading.value = false
+      return
+    }
+    
+    // Verifica se há um token na auth store
+    if (!pb.authStore.token) {
+      // Se não há token, redireciona para login
+      throw new Error('Token não encontrado')
+    }
+    
+    // Verifica se o token é válido fazendo uma requisição ao PocketBase
+    // Podemos usar a função de obter o usuário atual, que falha se o token for inválido
+    await pb.collection('users').authRefresh()
+    
+    // Se chegou aqui, o token é válido
+    console.log('Token válido, usuário autenticado')
+    isLoading.value = false
+  } catch (error) {
+    console.error('Erro na verificação do token:', error)
+    // Token inválido ou erro na verificação - limpa o token e redireciona para login
+    pb.authStore.clear()
+    sessionStorage.removeItem('testLogin')
+    router.push('/login')
+  }
 }
 
 // PWA Install functions
@@ -119,7 +157,10 @@ const handleLaunchParams = async (launchParams: { files?: FileSystemFileHandle[]
   sharedTitle.value = launchParams.title || '';
 };
 
-onMounted(() => {
+onMounted(async () => {
+  // Verificar token antes de continuar
+  await verificarToken()
+  
   // Handle PWA install prompt
   window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
 
@@ -155,77 +196,86 @@ const getFilePreviewUrl = (file: File) => {
 
 <template>
   <div class="home-page">
-    <h1 class="page-title">Bem vindo ao nosso webapp!</h1>
-    <p class="page-description">Você está logado.</p>
-
-    <!-- PWA Install Button -->
-    <div v-if="showInstallButton" class="install-section">
-      <button @click="installPWA" class="install-button">
-        📱 Instalar App
-      </button>
-      <p class="install-description">Instale este aplicativo em seu dispositivo para uma melhor experiência!</p>
+    <div v-if="isLoading" class="loading-overlay">
+      <div class="loading-spinner"></div>
+      <p>Verificando autenticação...</p>
     </div>
+    
+    <template v-else>
+      <h1 class="page-title">Bem vindo ao nosso webapp!</h1>
+      <p class="page-description">Você está logado.</p>
 
-    <!-- PWA Information Section -->
-    <div class="pwa-info-section">
-      <h3 class="pwa-info-title">💡 PWA Instalação</h3>
-      <div class="pwa-info-content">
-        <p>Este aplicativo é um Progressive Web App (PWA) e pode ser instalado em seu dispositivo!</p>
-        <details class="install-instructions">
-          <summary>Como instalar manualmente:</summary>
-          <div class="instructions-content">
-            <h4>🔹 Chrome/Edge (Desktop):</h4>
-            <p>Procure o ícone de instalação (📱) na barra de endereços ou clique no menu de três pontos → "Instalar app"</p>
+      <!-- PWA Install Button -->
+      <div v-if="showInstallButton" class="install-section">
+        <button @click="installPWA" class="install-button">
+          📱 Instalar App
+        </button>
+        <p class="install-description">Instale este aplicativo em seu dispositivo para uma melhor experiência!</p>
+      </div>
 
-            <h4>🔹 Chrome/Edge (Mobile):</h4>
-            <p>Toque no menu de três pontos → "Adicionar à tela inicial" ou "Instalar app"</p>
+      <UploadArea/>
 
-            <h4>🔹 Safari (iOS):</h4>
-            <p>Toque no botão de compartilhamento (📤) → "Adicionar à Tela de Início"</p>
+      <!-- PWA Information Section -->
+      <div class="pwa-info-section">
+        <h3 class="pwa-info-title">💡 PWA Instalação</h3>
+        <div class="pwa-info-content">
+          <p>Este aplicativo é um Progressive Web App (PWA) e pode ser instalado em seu dispositivo!</p>
+          <details class="install-instructions">
+            <summary>Como instalar manualmente:</summary>
+            <div class="instructions-content">
+              <h4>🔹 Chrome/Edge (Desktop):</h4>
+              <p>Procure o ícone de instalação (📱) na barra de endereços ou clique no menu de três pontos → "Instalar app"</p>
 
-            <h4>🔹 Firefox:</h4>
-            <p>Procure o prompt de instalação ou use "Adicionar à tela inicial" no menu</p>
+              <h4>🔹 Chrome/Edge (Mobile):</h4>
+              <p>Toque no menu de três pontos → "Adicionar à tela inicial" ou "Instalar app"</p>
+
+              <h4>🔹 Safari (iOS):</h4>
+              <p>Toque no botão de compartilhamento (📤) → "Adicionar à Tela de Início"</p>
+
+              <h4>🔹 Firefox:</h4>
+              <p>Procure o prompt de instalação ou use "Adicionar à tela inicial" no menu</p>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div v-if="isSharedContentPresent()" class="shared-content-card">
+        <h3 class="shared-content-title">Conteúdo Compartilhado Recebido!</h3>
+
+        <p v-if="sharedTitle"><strong>Título:</strong> {{ sharedTitle }}</p>
+        <p v-if="sharedText"><strong>Texto:</strong> {{ sharedText }}</p>
+        <p v-if="sharedUrl"><strong>URL:</strong> <a :href="sharedUrl" target="_blank" class="shared-link">{{ sharedUrl
+            }}</a></p>
+
+        <div v-if="sharedFiles.length > 0" class="shared-files-section">
+          <h4 class="shared-files-heading">Arquivos Compartilhados:</h4>
+          <ul class="file-list">
+            <li v-for="file in sharedFiles" :key="file.name" class="file-item">
+              <span class="file-name">{{ file.name }}</span>
+              <span class="file-type">({{ file.type }})</span>
+              <img v-if="getFilePreviewUrl(file)" :src="getFilePreviewUrl(file)!" alt="File preview"
+                class="file-preview-image" />
+              <span v-else-if="file.type === 'application/pdf'" class="file-icon">📄 PDF</span>
+              <span v-else class="file-icon">📁 File</span>
+            </li>
+          </ul>
+
+          <div v-if="uploading" class="upload-status-message upload-progress">
+            Enviando arquivo...
           </div>
-        </details>
-      </div>
-    </div>
-
-    <div v-if="isSharedContentPresent()" class="shared-content-card">
-      <h3 class="shared-content-title">Shared Content Received!</h3>
-
-      <p v-if="sharedTitle"><strong>Title:</strong> {{ sharedTitle }}</p>
-      <p v-if="sharedText"><strong>Text:</strong> {{ sharedText }}</p>
-      <p v-if="sharedUrl"><strong>URL:</strong> <a :href="sharedUrl" target="_blank" class="shared-link">{{ sharedUrl
-          }}</a></p>
-
-      <div v-if="sharedFiles.length > 0" class="shared-files-section">
-        <h4 class="shared-files-heading">Files Shared:</h4>
-        <ul class="file-list">
-          <li v-for="file in sharedFiles" :key="file.name" class="file-item">
-            <span class="file-name">{{ file.name }}</span>
-            <span class="file-type">({{ file.type }})</span>
-            <img v-if="getFilePreviewUrl(file)" :src="getFilePreviewUrl(file)!" alt="File preview"
-              class="file-preview-image" />
-            <span v-else-if="file.type === 'application/pdf'" class="file-icon">📄 PDF</span>
-            <span v-else class="file-icon">📁 File</span>
-          </li>
-        </ul>
-
-        <div v-if="uploading" class="upload-status-message upload-progress">
-          Uploading file...
+          <div v-else-if="uploadResponse" class="upload-status-message upload-success">
+            Upload realizado com sucesso! <br /> {{ uploadResponse }}
+          </div>
+          <div v-else-if="uploadError" class="upload-status-message upload-error">
+            Erro no upload: <br /> {{ uploadError }}
+          </div>
         </div>
-        <div v-else-if="uploadResponse" class="upload-status-message upload-success">
-          Upload Successful! <br /> {{ uploadResponse }}
-        </div>
-        <div v-else-if="uploadError" class="upload-status-message upload-error">
-          Upload Error: <br /> {{ uploadError }}
-        </div>
+
+        <p class="shared-feedback">Este conteúdo foi compartilhado com seu PWA!</p>
       </div>
 
-      <p class="shared-feedback">This content was shared with your PWA!</p>
-    </div>
-
-    <hr class="separator" />
+      <hr class="separator" />
+    </template>
   </div>
 </template>
 
@@ -235,6 +285,37 @@ const getFilePreviewUrl = (file: File) => {
   max-width: 800px;
   /* Constrain content width */
   margin: 0 auto;
+  position: relative;
+  min-height: 200px;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.9);
+  z-index: 10;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 16px;
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top: 4px solid var(--color-primary);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .page-title {
