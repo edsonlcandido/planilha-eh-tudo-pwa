@@ -5,7 +5,12 @@ interface Props {
   cartao: CartaoData
 }
 
+interface Emits {
+  (e: 'click', cartao: CartaoData): void
+}
+
 defineProps<Props>()
+const emit = defineEmits<Emits>()
 
 // Função para formatar valor monetário
 const formatarValor = (valor: number): string => {
@@ -14,10 +19,15 @@ const formatarValor = (valor: number): string => {
     currency: 'BRL'
   }).format(valor)
 }
+
+// Emite evento de clique
+const handleClick = (cartao: CartaoData) => {
+  emit('click', cartao)
+}
 </script>
 
 <template>
-  <div class="cartao-item">
+  <div class="cartao-item" @click="handleClick(cartao)">
     <div class="cartao-header">
       <div class="cartao-valor" :class="{ 'negativo': cartao.valor < 0 }">
         {{ formatarValor(cartao.valor) }}
@@ -56,6 +66,7 @@ const formatarValor = (valor: number): string => {
   margin-bottom: 1rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
 }
 
 .cartao-item:hover {
