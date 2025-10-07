@@ -15,9 +15,5 @@ COPY . .
 
 EXPOSE 4173
 
-# Build vite
-CMD [ "npm", "run", "build" ]
-
-# Preview vite
-CMD [ "npm", "run", "preview", "--host" ]
-
+# Preview vite servindo da pasta pwa com --host para aceitar conexões externas
+CMD [ "npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "4173" ]
