@@ -117,49 +117,18 @@ const mockBackendResponse = (): CartaoData[] => {
   ];
 };
 
-// Aguarda o processamento do webhook e obtém os cartões processados
-const waitForProcessing = async (recordId: string): Promise<CartaoData[]> => {
-  const maxAttempts = 30; // 30 tentativas (5 minutos máximo)
-  const delayMs = 10000; // 10 segundos entre tentativas
-  
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      // Busca o registro atualizado no PocketBase
-      const record = await pb.collection(uploadCollection).getOne(recordId);
-      
-      // Verifica se o status mudou para "processed"
-      if (record.status === 'processed' && record.analysis_result) {
-        // Parse do resultado da análise
-        const analysisResult = typeof record.analysis_result === 'string' 
-          ? JSON.parse(record.analysis_result) 
-          : record.analysis_result;
-        
-        if (analysisResult && Array.isArray(analysisResult)) {
-          return analysisResult as CartaoData[];
-        } else if (analysisResult && analysisResult.cartoes && Array.isArray(analysisResult.cartoes)) {
-          return analysisResult.cartoes as CartaoData[];
-        } else {
-          throw new Error('Formato de resposta inválido do backend');
-        }
-      } else if (record.status === 'error') {
-        throw new Error(record.error_message || 'Erro no processamento da imagem');
-      }
-      
-      // Aguarda antes da próxima tentativa
-      if (attempt < maxAttempts) {
-        uploadMessage.value = `Analisando documento... (tentativa ${attempt}/${maxAttempts})`;
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-      }
-    } catch (error: any) {
-      console.error(`Erro na tentativa ${attempt}:`, error);
-      if (attempt === maxAttempts) {
-        throw error;
-      }
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-    }
+// Processa a resposta do webhook e extrai os cartões
+const processWebhookResponse = (responseData: any): CartaoData[] => {
+  // A resposta pode ser diretamente um array ou um objeto com a propriedade cartoes
+  if (Array.isArray(responseData)) {
+    return responseData as CartaoData[];
+  } else if (responseData && responseData.cartoes && Array.isArray(responseData.cartoes)) {
+    return responseData.cartoes as CartaoData[];
+  } else if (responseData && responseData.data && Array.isArray(responseData.data)) {
+    return responseData.data as CartaoData[];
+  } else {
+    throw new Error('Formato de resposta inválido do backend');
   }
-  
-  throw new Error('Timeout: Processamento demorou mais que o esperado');
 };
 
 // Apaga a imagem do PocketBase após o processamento
@@ -235,10 +204,10 @@ const uploadFile = async () => {
       throw new Error('PocketBase não retornou o arquivo.');
     }
 
-    // 2. Notifica o webhook com a URL do arquivo
+    // 2. Envia para o webhook e processa a resposta diretamente
     const uploadUri = pb.files.getUrl(record, fileName);
     uploadStatus.value = 'analyzing';
-    uploadMessage.value = 'Enviando para análise...';
+    uploadMessage.value = 'Analisando documento...';
     
     const webhookResponse = await fetch(webhookUrl, {
       method: 'POST',
@@ -250,12 +219,12 @@ const uploadFile = async () => {
     });
 
     if (!webhookResponse.ok) {
-      throw new Error('Falha ao iniciar processamento da imagem.');
+      throw new Error('Falha ao processar a imagem no servidor.');
     }
 
-    // 3. Aguarda o processamento e obtém os cartões
-    uploadMessage.value = 'Analisando documento...';
-    const cartaosList = await waitForProcessing(record.id);
+    // 3. Processa a resposta do webhook diretamente
+    const webhookData = await webhookResponse.json();
+    const cartaosList = processWebhookResponse(webhookData);
     
     // 4. Armazena os cartões no estado
     cartoes.value = cartaosList;
