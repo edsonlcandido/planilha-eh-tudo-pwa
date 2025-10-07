@@ -23,6 +23,11 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 4173,
     strictPort: true,
+    allowedHosts: [
+      'eh-tudo-planilha-pwa.aiyfgd.easypanel.host',
+      '.easypanel.host', // Permite qualquer subdomínio do easypanel.host
+      'localhost'
+    ],
   },
   build: {
     outDir: 'pwa',
