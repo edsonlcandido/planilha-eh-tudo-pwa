@@ -28,6 +28,9 @@ const formData = ref<CartaoData>({
   observacao: ''
 })
 
+// Valor sign state (for toggle button)
+const valorSign = ref<'-' | '+'>('-')
+
 // Autocomplete states
 const showContaAutocomplete = ref(false)
 const showCategoriaAutocomplete = ref(false)
@@ -49,10 +52,17 @@ const filteredCategorias = computed(() => {
   )
 })
 
+// Toggle valor sign
+const toggleValorSign = () => {
+  valorSign.value = valorSign.value === '-' ? '+' : '-'
+}
+
 // Watch for prop changes to update form data
 watch(() => props.cartao, (newCartao) => {
   if (newCartao) {
     formData.value = { ...newCartao }
+    // Set the sign based on the valor
+    valorSign.value = newCartao.valor < 0 ? '-' : '+'
   }
 }, { immediate: true })
 
@@ -73,7 +83,10 @@ const handleSubmit = () => {
     alert('Por favor, preencha os campos obrigatórios: Descrição e Conta')
     return
   }
-  emit('save', formData.value)
+  
+  // Apply the sign to the valor
+  const finalValor = valorSign.value === '-' ? -Math.abs(formData.value.valor) : Math.abs(formData.value.valor)
+  emit('save', { ...formData.value, valor: finalValor })
 }
 
 // Handle modal close
@@ -84,10 +97,10 @@ const handleClose = () => {
 // Handle clicks outside autocomplete to close it
 const handleClickOutside = (event: MouseEvent) => {
   const target = event.target as HTMLElement
-  if (showContaAutocomplete.value && !target.closest('.autocomplete-container')) {
+  if (showContaAutocomplete.value && !target.closest('.form-group')) {
     showContaAutocomplete.value = false
   }
-  if (showCategoriaAutocomplete.value && !target.closest('.autocomplete-container')) {
+  if (showCategoriaAutocomplete.value && !target.closest('.form-group')) {
     showCategoriaAutocomplete.value = false
   }
 }
@@ -158,157 +171,155 @@ const orcamentoInput = computed({
 
 <template>
   <Teleport to="body">
-    <div v-if="show" class="modal-overlay" @click="handleClose" @mousedown="handleClickOutside">
-      <div class="modal-container" @click.stop>
-        <div class="modal-header">
-          <h2 class="modal-title">Editar Lançamento</h2>
-          <button class="modal-close" @click="handleClose" aria-label="Fechar">
-            ×
-          </button>
-        </div>
+    <div v-if="show" class="entry-modal" @click="handleClose" @mousedown="handleClickOutside">
+      <div class="entry-modal__content" @click.stop>
+        <button class="entry-modal__close" @click="handleClose" aria-label="Fechar">
+          ×
+        </button>
+        
+        <h3 class="entry-modal__title">Lançamento de Despesa/Receita</h3>
+        
+        <form @submit.prevent="handleSubmit" class="entry-modal__form">
+          <fieldset>
+            <!-- Data -->
+            <div class="form-group">
+              <label for="expenseDate">Data:</label>
+              <input
+                type="datetime-local"
+                id="expenseDate"
+                v-model="dataInput"
+                class="form-control"
+                required
+              />
+            </div>
 
-        <form @submit.prevent="handleSubmit" class="modal-form">
-          <!-- Data -->
-          <div class="form-group">
-            <label for="data" class="form-label">
-              Data e Hora <span class="required">*</span>
-            </label>
-            <input
-              type="datetime-local"
-              id="data"
-              v-model="dataInput"
-              required
-              class="form-input"
-            />
-          </div>
-
-          <!-- Conta com Autocomplete -->
-          <div class="form-group autocomplete-container">
-            <label for="conta" class="form-label">
-              Conta <span class="required">*</span>
-            </label>
-            <input
-              type="text"
-              id="conta"
-              ref="contaInput"
-              v-model="formData.conta"
-              @focus="showContaAutocomplete = true"
-              @input="showContaAutocomplete = true"
-              required
-              class="form-input"
-              placeholder="Ex: NU PAGAMENTOS - IP"
-              autocomplete="off"
-            />
-            <div v-if="showContaAutocomplete && filteredContas.length > 0" class="autocomplete-dropdown">
-              <div
-                v-for="conta in filteredContas"
-                :key="conta"
-                class="autocomplete-item"
-                @click="selectConta(conta)"
-              >
-                {{ conta }}
+            <!-- Conta com Autocomplete -->
+            <div class="form-group">
+              <label for="expenseAccount">Conta:</label>
+              <input
+                type="text"
+                id="expenseAccount"
+                ref="contaInput"
+                v-model="formData.conta"
+                @focus="showContaAutocomplete = true"
+                @input="showContaAutocomplete = true"
+                class="form-control"
+                placeholder="Ex: Conta Corrente"
+                required
+                autocomplete="off"
+              />
+              <div v-if="showContaAutocomplete && filteredContas.length > 0" class="autocomplete-dropdown">
+                <div
+                  v-for="conta in filteredContas"
+                  :key="conta"
+                  class="autocomplete-item"
+                  @click="selectConta(conta)"
+                >
+                  {{ conta }}
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Valor -->
-          <div class="form-group">
-            <label for="valor" class="form-label">
-              Valor <span class="required">*</span>
-            </label>
-            <input
-              type="number"
-              id="valor"
-              v-model.number="formData.valor"
-              step="0.01"
-              required
-              class="form-input"
-              placeholder="0.00"
-            />
-            <small class="form-hint">Use valores negativos para despesas</small>
-          </div>
-
-          <!-- Descrição -->
-          <div class="form-group">
-            <label for="descricao" class="form-label">
-              Descrição <span class="required">*</span>
-            </label>
-            <input
-              type="text"
-              id="descricao"
-              v-model="formData.descricao"
-              required
-              class="form-input"
-              placeholder="Ex: CLINICA FRANCO PEGHINI LTDA"
-            />
-          </div>
-
-          <!-- Categoria com Autocomplete -->
-          <div class="form-group autocomplete-container">
-            <label for="categoria" class="form-label">
-              Categoria <span class="required">*</span>
-            </label>
-            <input
-              type="text"
-              id="categoria"
-              ref="categoriaInput"
-              v-model="formData.categoria"
-              @focus="showCategoriaAutocomplete = true"
-              @input="showCategoriaAutocomplete = true"
-              required
-              class="form-input"
-              placeholder="Ex: Saúde, Alimentação, Outros"
-              autocomplete="off"
-            />
-            <div v-if="showCategoriaAutocomplete && filteredCategorias.length > 0" class="autocomplete-dropdown">
-              <div
-                v-for="categoria in filteredCategorias"
-                :key="categoria"
-                class="autocomplete-item"
-                @click="selectCategoria(categoria)"
-              >
-                {{ categoria }}
+            <!-- Valor com toggle -->
+            <div class="form-group valor-toggle-group">
+              <label for="expenseValue">Valor:</label>
+              <div class="valor-toggle-container">
+                <button
+                  type="button"
+                  @click="toggleValorSign"
+                  class="button outline entry-toggle"
+                  :class="valorSign === '-' ? 'entry-toggle--expense' : 'entry-toggle--income'"
+                  aria-label="Alternar sinal"
+                >
+                  {{ valorSign }}
+                </button>
+                <input
+                  type="number"
+                  id="expenseValue"
+                  v-model.number="formData.valor"
+                  class="form-control"
+                  step="0.01"
+                  min="0"
+                  placeholder="0,00"
+                  required
+                />
               </div>
             </div>
-          </div>
 
-          <!-- Orçamento -->
-          <div class="form-group">
-            <label for="orcamento" class="form-label">
-              Orçamento <span class="required">*</span>
-            </label>
-            <input
-              type="date"
-              id="orcamento"
-              v-model="orcamentoInput"
-              required
-              class="form-input"
-            />
-          </div>
+            <!-- Descrição -->
+            <div class="form-group">
+              <label for="expenseDescription">Descrição:</label>
+              <input
+                type="text"
+                id="expenseDescription"
+                v-model="formData.descricao"
+                class="form-control"
+                placeholder="Descrição da despesa"
+                required
+              />
+            </div>
 
-          <!-- Observação -->
-          <div class="form-group">
-            <label for="observacao" class="form-label">
-              Observação
-            </label>
-            <textarea
-              id="observacao"
-              v-model="formData.observacao"
-              rows="3"
-              class="form-input"
-              placeholder="Observações adicionais (opcional)"
-            ></textarea>
-          </div>
+            <!-- Categoria com Autocomplete -->
+            <div class="form-group">
+              <label for="expenseCategory">Categoria:</label>
+              <input
+                type="text"
+                id="expenseCategory"
+                ref="categoriaInput"
+                v-model="formData.categoria"
+                @focus="showCategoriaAutocomplete = true"
+                @input="showCategoriaAutocomplete = true"
+                class="form-control"
+                placeholder="Digite uma categoria"
+                required
+                autocomplete="off"
+              />
+              <div v-if="showCategoriaAutocomplete && filteredCategorias.length > 0" class="autocomplete-dropdown">
+                <div
+                  v-for="categoria in filteredCategorias"
+                  :key="categoria"
+                  class="autocomplete-item"
+                  @click="selectCategoria(categoria)"
+                >
+                  {{ categoria }}
+                </div>
+              </div>
+            </div>
 
-          <!-- Botões de ação -->
-          <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" @click="handleClose">
-              Cancelar
-            </button>
-            <button type="submit" class="btn btn-primary">
-              Salvar
-            </button>
-          </div>
+            <!-- Orçamento -->
+            <div class="form-group">
+              <label for="expenseBudget">Orçamento (data-chave):</label>
+              <input
+                type="date"
+                id="expenseBudget"
+                v-model="orcamentoInput"
+                class="form-control"
+                required
+              />
+            </div>
+
+            <!-- Observação -->
+            <div class="form-group">
+              <label for="expenseObservation">Observação:</label>
+              <textarea
+                id="expenseObservation"
+                v-model="formData.observacao"
+                rows="3"
+                class="form-control"
+                placeholder="Observações adicionais (opcional)"
+              ></textarea>
+            </div>
+
+            <!-- Botões -->
+            <div class="form-actions">
+              <button type="button" class="button outline" @click="handleClose">
+                Cancelar
+              </button>
+              <button type="submit" class="button primary">
+                Salvar
+              </button>
+            </div>
+          </fieldset>
         </form>
       </div>
     </div>
@@ -316,7 +327,8 @@ const orcamentoInput = computed({
 </template>
 
 <style scoped>
-.modal-overlay {
+/* Modal overlay */
+.entry-modal {
   position: fixed;
   top: 0;
   left: 0;
@@ -331,213 +343,257 @@ const orcamentoInput = computed({
   overflow-y: auto;
 }
 
-.modal-container {
-  background-color: var(--color-card-background);
-  border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-  width: 100%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
-  position: relative;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+/* Modal content */
+.entry-modal__content {
+  background: white;
   padding: 1.5rem;
-  border-bottom: 1px solid var(--color-border);
-  position: sticky;
-  top: 0;
-  background-color: var(--color-card-background);
-  z-index: 1;
+  border-radius: 4px;
+  max-width: 600px;
+  width: 90%;
+  position: relative;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.modal-title {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--color-text-dark);
-}
-
-.modal-close {
+/* Close button */
+.entry-modal__close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
   background: none;
   border: none;
-  font-size: 2rem;
+  font-size: 1.5rem;
   line-height: 1;
-  color: var(--color-text-light);
+  color: #999;
   cursor: pointer;
   padding: 0;
-  width: 2rem;
-  height: 2rem;
+  width: 1.5rem;
+  height: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: color 0.2s ease;
 }
 
-.modal-close:hover {
-  color: var(--color-text-dark);
+.entry-modal__close:hover {
+  color: #333;
 }
 
-.modal-form {
-  padding: 1.5rem;
+/* Title */
+.entry-modal__title {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #2c3e50;
 }
 
+/* Form */
+.entry-modal__form {
+  width: 100%;
+}
+
+fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Form groups */
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
   position: relative;
 }
 
-.form-label {
+.form-group label {
   display: block;
   margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: var(--color-text-dark);
-  font-size: 0.875rem;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.9rem;
 }
 
-.required {
-  color: var(--color-accent);
-}
-
-.form-input {
+/* Form controls */
+.form-control {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid var(--color-border);
+  padding: 0.625rem;
+  border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 1rem;
-  color: var(--color-text-dark);
-  background-color: var(--color-card-background);
+  font-size: 0.95rem;
+  color: #333;
+  background-color: white;
   box-sizing: border-box;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.form-input:focus {
+.form-control:focus {
   outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
 }
 
-.form-input::placeholder {
-  color: var(--color-text-light);
+.form-control::placeholder {
+  color: #999;
 }
 
-textarea.form-input {
+textarea.form-control {
   resize: vertical;
-  min-height: 80px;
+  min-height: 70px;
+  font-family: inherit;
 }
 
-.form-hint {
-  display: block;
-  margin-top: 0.25rem;
-  font-size: 0.75rem;
-  color: var(--color-text-light);
+/* Valor toggle group */
+.valor-toggle-group {
+  margin-bottom: 1.25rem;
 }
 
-/* Autocomplete styles */
-.autocomplete-container {
-  position: relative;
+.valor-toggle-container {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
 }
 
+.entry-toggle {
+  flex-shrink: 0;
+  width: 3rem;
+  padding: 0.625rem;
+  font-size: 1.25rem;
+  font-weight: bold;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.entry-toggle:hover {
+  background-color: #f8f9fa;
+}
+
+.entry-toggle--expense {
+  color: #e74c3c;
+  border-color: #e74c3c;
+}
+
+.entry-toggle--expense:hover {
+  background-color: #ffe5e5;
+}
+
+.entry-toggle--income {
+  color: #27ae60;
+  border-color: #27ae60;
+}
+
+.entry-toggle--income:hover {
+  background-color: #e5f5ed;
+}
+
+.valor-toggle-container .form-control {
+  flex: 1;
+}
+
+/* Autocomplete dropdown */
 .autocomplete-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
   right: 0;
-  background-color: var(--color-card-background);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background-color: white;
+  border: 1px solid #ddd;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   max-height: 200px;
   overflow-y: auto;
   z-index: 10;
-  margin-top: 0.25rem;
+  margin-top: -1px;
 }
 
 .autocomplete-item {
-  padding: 0.75rem;
+  padding: 0.625rem;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  font-size: 0.95rem;
+  color: #333;
 }
 
 .autocomplete-item:hover {
-  background-color: var(--color-background-light);
+  background-color: #f8f9fa;
 }
 
 .autocomplete-item:not(:last-child) {
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid #f0f0f0;
 }
 
-/* Modal actions */
-.modal-actions {
+/* Form actions */
+.form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 2rem;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
   padding-top: 1.5rem;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid #ecf0f1;
 }
 
-.btn {
-  padding: 0.75rem 1.5rem;
+/* Buttons */
+.button {
+  padding: 0.625rem 1.5rem;
   border-radius: 4px;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  border: none;
+  border: 1px solid transparent;
 }
 
-.btn-primary {
-  background-color: var(--color-primary);
+.button.outline {
+  background-color: white;
+  color: #333;
+  border-color: #ddd;
+}
+
+.button.outline:hover {
+  background-color: #f8f9fa;
+  border-color: #ccc;
+}
+
+.button.primary {
+  background-color: #3498db;
   color: white;
+  border-color: #3498db;
 }
 
-.btn-primary:hover {
-  background-color: var(--color-hover-blue);
-}
-
-.btn-secondary {
-  background-color: var(--color-background-light);
-  color: var(--color-text-dark);
-  border: 1px solid var(--color-border);
-}
-
-.btn-secondary:hover {
-  background-color: var(--color-border);
+.button.primary:hover {
+  background-color: #2980b9;
+  border-color: #2980b9;
 }
 
 /* Responsive */
 @media (max-width: 640px) {
-  .modal-overlay {
+  .entry-modal {
     padding: 0;
   }
 
-  .modal-container {
+  .entry-modal__content {
     max-width: 100%;
     max-height: 100vh;
     border-radius: 0;
+    width: 100%;
   }
 
-  .modal-header {
-    padding: 1rem;
+  .entry-modal__title {
+    font-size: 1.1rem;
+    padding-right: 2rem;
   }
 
-  .modal-form {
-    padding: 1rem;
-  }
-
-  .modal-title {
-    font-size: 1.25rem;
-  }
-
-  .modal-actions {
+  .form-actions {
     flex-direction: column;
   }
 
-  .btn {
+  .button {
     width: 100%;
   }
 }
