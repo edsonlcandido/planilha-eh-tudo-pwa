@@ -424,6 +424,7 @@ fieldset {
   background-color: white;
   box-sizing: border-box;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  font-family: inherit;
 }
 
 .form-control:focus {
@@ -461,7 +462,6 @@ textarea.form-control {
   font-weight: bold;
   border: 1px solid #ddd;
   border-radius: 4px;
-  background-color: white;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -470,25 +470,29 @@ textarea.form-control {
 }
 
 .entry-toggle:hover {
-  background-color: #f8f9fa;
+  opacity: 0.9;
 }
 
 .entry-toggle--expense {
-  color: #e74c3c;
+  background-color: #e74c3c;
+  color: white;
   border-color: #e74c3c;
 }
 
 .entry-toggle--expense:hover {
-  background-color: #ffe5e5;
+  background-color: #c0392b;
+  border-color: #c0392b;
 }
 
 .entry-toggle--income {
-  color: #27ae60;
+  background-color: #27ae60;
+  color: white;
   border-color: #27ae60;
 }
 
 .entry-toggle--income:hover {
-  background-color: #e5f5ed;
+  background-color: #229954;
+  border-color: #229954;
 }
 
 .valor-toggle-container .form-control {
