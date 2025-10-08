@@ -31,6 +31,14 @@ const formData = ref<CartaoData>({
 // Valor sign state (for toggle button)
 const valorSign = ref<'-' | '+'>('-')
 
+// Computed property for valor input (always absolute value)
+const valorAbsoluto = computed({
+  get: () => Math.abs(formData.value.valor),
+  set: (value: number) => {
+    formData.value.valor = Math.abs(value)
+  }
+})
+
 // Autocomplete states
 const showContaAutocomplete = ref(false)
 const showCategoriaAutocomplete = ref(false)
@@ -60,8 +68,8 @@ const toggleValorSign = () => {
 // Watch for prop changes to update form data
 watch(() => props.cartao, (newCartao) => {
   if (newCartao) {
-    formData.value = { ...newCartao }
-    // Set the sign based on the valor
+    formData.value = { ...newCartao, valor: Math.abs(newCartao.valor) }
+    // Set the sign based on the original valor
     valorSign.value = newCartao.valor < 0 ? '-' : '+'
   }
 }, { immediate: true })
@@ -236,7 +244,7 @@ const orcamentoInput = computed({
                 <input
                   type="number"
                   id="expenseValue"
-                  v-model.number="formData.valor"
+                  v-model.number="valorAbsoluto"
                   class="form-control"
                   step="0.01"
                   min="0"
