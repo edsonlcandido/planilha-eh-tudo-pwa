@@ -347,7 +347,7 @@ const handleSave = async (updatedCartao: CartaoData) => {
 <template>
     <div class="upload-area">
         <h2 class="upload-title">Análise de Documento</h2>
-        <p class="upload-description">Envie extratos, comprovantes ou notas fiscais para análise automática</p>
+        <p class="upload-description">Envie extratos e comprovantes para análise automática</p>
     </div>
 
         <!-- Área de seleção de arquivos simplificada -->

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
-import type { CartaoData } from '../types'
+import { ref, watch, computed, onMounted } from 'vue'
+import type { CartaoData, GetEntriesResponse, GetCategoriesResponse } from '../types'
+import pb from '../pocketbase'
 
 interface Props {
   show: boolean
@@ -16,6 +17,127 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+
+// Estados para dados das APIs
+const apiContas = ref<string[]>([])
+const apiCategorias = ref<string[]>([])
+const isLoadingContas = ref(false)
+const isLoadingCategorias = ref(false)
+
+// Buscar contas únicas da API de entries
+const fetchContas = async () => {
+  const entriesUrl = import.meta.env.VITE_GET_ENTRIES_URL
+  if (!entriesUrl) {
+    console.warn('VITE_GET_ENTRIES_URL não configurada')
+    return
+  }
+
+  isLoadingContas.value = true
+  try {
+    // Obter token de autenticação do PocketBase
+    const token = pb.authStore.token
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json'
+    }
+    
+    // Adicionar token se estiver disponível
+    if (token) {
+      headers['Authorization'] = `${token}`
+    }
+    
+    const response = await fetch(entriesUrl, {
+      method: 'GET',
+      headers
+    })
+    
+    if (response.ok) {
+      const data: GetEntriesResponse = await response.json()
+      if (data.success && data.entries) {
+        // Extrair contas únicas
+        const contasSet = new Set<string>()
+        data.entries.forEach(entry => {
+          if (entry.conta && entry.conta.trim() !== '') {
+            contasSet.add(entry.conta.trim())
+          }
+        })
+        apiContas.value = Array.from(contasSet).sort()
+        console.log(`✅ ${apiContas.value.length} contas únicas carregadas`)
+      }
+    } else {
+      console.warn(`⚠️ Erro ao buscar contas: ${response.status} ${response.statusText}`)
+    }
+  } catch (error) {
+    console.warn('⚠️ Erro ao buscar contas:', error)
+  } finally {
+    isLoadingContas.value = false
+  }
+}
+
+// Buscar categorias da API
+const fetchCategorias = async () => {
+  const categoriesUrl = import.meta.env.VITE_GET_CATEGORIES_URL
+  if (!categoriesUrl) {
+    console.warn('VITE_GET_CATEGORIES_URL não configurada')
+    return
+  }
+
+  isLoadingCategorias.value = true
+  try {
+    // Obter token de autenticação do PocketBase
+    const token = pb.authStore.token
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json'
+    }
+    
+    // Adicionar token se estiver disponível
+    if (token) {
+      headers['Authorization'] = `${token}`
+    }
+    
+    const response = await fetch(categoriesUrl, {
+      method: 'GET',
+      headers
+    })
+    
+    if (response.ok) {
+      const data: GetCategoriesResponse = await response.json()
+      if (data.success && data.categories) {
+        apiCategorias.value = data.categories
+        console.log(`✅ ${apiCategorias.value.length} categorias carregadas`)
+      }
+    } else {
+      console.warn(`⚠️ Erro ao buscar categorias: ${response.status} ${response.statusText}`)
+    }
+  } catch (error) {
+    console.warn('⚠️ Erro ao buscar categorias:', error)
+  } finally {
+    isLoadingCategorias.value = false
+  }
+}
+
+// Buscar dados quando o modal for aberto pela primeira vez
+const dataLoaded = ref(false)
+watch(() => props.show, (isShown) => {
+  if (isShown && !dataLoaded.value) {
+    dataLoaded.value = true
+    fetchContas()
+    fetchCategorias()
+  }
+})
+
+// Combinar contas das props com contas da API
+const allContas = computed(() => {
+  const combined = [...props.contas, ...apiContas.value]
+  return Array.from(new Set(combined)).sort()
+})
+
+// Combinar categorias das props com categorias da API
+const allCategorias = computed(() => {
+  const combined = [...props.categorias, ...apiCategorias.value]
+  return Array.from(new Set(combined)).sort()
+})
 
 // Form data
 const formData = ref<CartaoData>({
@@ -47,15 +169,15 @@ const categoriaInput = ref<HTMLInputElement | null>(null)
 
 // Filtered options for autocomplete
 const filteredContas = computed(() => {
-  if (!formData.value.conta) return props.contas
-  return props.contas.filter(conta => 
+  if (!formData.value.conta) return allContas.value
+  return allContas.value.filter(conta => 
     conta.toLowerCase().includes(formData.value.conta.toLowerCase())
   )
 })
 
 const filteredCategorias = computed(() => {
-  if (!formData.value.categoria) return props.categorias
-  return props.categorias.filter(categoria => 
+  if (!formData.value.categoria) return allCategorias.value
+  return allCategorias.value.filter(categoria => 
     categoria.toLowerCase().includes(formData.value.categoria.toLowerCase())
   )
 })
