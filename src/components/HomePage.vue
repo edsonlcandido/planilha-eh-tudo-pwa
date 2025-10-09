@@ -202,8 +202,8 @@ const getFilePreviewUrl = (file: File) => {
     </div>
     
     <template v-else>
-      <h1 class="page-title">Bem vindo ao nosso webapp!</h1>
-      <p class="page-description">Você está logado.</p>
+      <h1 class="page-title">Bem vindo ao nosso app!</h1>
+      <p class="page-description">Essa é nossa extensão para celular para poder enviar comprovantes e processar usando agentes de IA.</p>
 
       <!-- PWA Install Button -->
       <div v-if="showInstallButton" class="install-section">
