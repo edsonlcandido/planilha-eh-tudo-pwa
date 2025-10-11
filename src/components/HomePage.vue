@@ -2,8 +2,10 @@
 import HelloWorld from './HelloWorld.vue'
 import { useRouter } from 'vue-router'
 import pb from '../pocketbase' // Import PocketBase instance
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import UploadArea from './UploadArea.vue'
+import CartaoItem from './CartaoItem.vue'
+import type { CartaoData } from '../types'
 
 const router = useRouter()
 
@@ -20,6 +22,21 @@ const uploadResponse = ref<any>(null)
 const uploadError = ref<string | null>(null)
 const uploading = ref(false)
 const isLoading = ref(true)
+const sharedCartoes = ref<CartaoData[]>([])
+
+// Upload configuration
+const uploadCollection = 'uploads'
+const fileFieldName = 'file'
+const webhookUrl = import.meta.env.VITE_WEBHOOK_URL
+
+const currentUserId = computed(() => {
+  // Para login de teste, usa um ID fictício
+  const testLogin = sessionStorage.getItem('testLogin')
+  if (testLogin === 'true') {
+    return 'test-user-id'
+  }
+  return pb.authStore.model?.id || ''
+})
 
 const logout = () => {
   pb.authStore.clear()
@@ -92,50 +109,136 @@ const installPWA = async () => {
 
 // --- Share Target Handling Logic ---
 
+// Processa a resposta do webhook e extrai os cartões
+const processWebhookResponse = (responseData: any): CartaoData[] => {
+  // A resposta pode ser diretamente um array ou um objeto com a propriedade cartoes
+  if (Array.isArray(responseData)) {
+    return responseData as CartaoData[]
+  } else if (responseData && responseData.cartoes && Array.isArray(responseData.cartoes)) {
+    return responseData.cartoes as CartaoData[]
+  } else if (responseData && responseData.data && Array.isArray(responseData.data)) {
+    return responseData.data as CartaoData[]
+  } else {
+    throw new Error('Formato de resposta inválido do backend')
+  }
+}
+
+// Função para simular resposta do backend durante desenvolvimento/teste
+const mockBackendResponse = (): CartaoData[] => {
+  return [
+    {
+      data: "23/09/2025 15:02",
+      conta: "NU PAGAMENTOS - IP",
+      valor: 250,
+      descricao: "CLINICA FRANCO PEGHINI LTDA",
+      categoria: "Outros",
+      orcamento: "23/09/2025",
+      observacao: "Transferência via Pix para Clinica Franco Peghini Ltda"
+    },
+    {
+      data: "22/09/2025 10:30",
+      conta: "BANCO DO BRASIL",
+      valor: -45.50,
+      descricao: "SUPERMERCADO EXEMPLO",
+      categoria: "Alimentação",
+      orcamento: "22/09/2025",
+      observacao: "Compra no supermercado - débito automático"
+    }
+  ]
+}
+
+// Apaga a imagem do PocketBase após o processamento
+const deleteUploadedImage = async (recordId: string): Promise<void> => {
+  try {
+    await pb.collection(uploadCollection).delete(recordId)
+    console.log('Imagem apagada com sucesso do PocketBase')
+  } catch (error: any) {
+    console.error('Erro ao apagar imagem:', error)
+    // Não propaga o erro pois os cartões já foram criados
+  }
+}
+
 const uploadSharedFile = async (file: File) => {
   uploading.value = true
   uploadResponse.value = null
   uploadError.value = null
+  sharedCartoes.value = []
 
-  const authToken = pb.authStore.token // Get token from PocketBase auth store
-  if (!authToken) {
-    uploadError.value = 'Authentication token not found. Please log in.'
-    router.push('/login')
+  if (!currentUserId.value) {
+    uploadError.value = 'Faça login para enviar arquivos.'
     uploading.value = false
     return
   }
 
-  const formData = new FormData()
-  formData.append('file', file) // Use 'file' as the field name for consistency
-
   try {
-    // Simulate backend request to /api/upload-file
-    // In a real scenario, this would be your actual PocketBase collection upload
-    const response = await fetch('/api/upload-file', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${authToken}`,
-        // 'Content-Type': 'multipart/form-data' - fetch sets this automatically with FormData
-      },
-      body: formData,
-    })
-
-    if (!response.ok) {
-      let errorText = await response.text()
-      try {
-        const errorJson = JSON.parse(errorText)
-        errorText = errorJson.message || errorText
-      } catch (e) {
-        // Not JSON, use plain text
-      }
-      throw new Error(`HTTP error! Status: ${response.status}. ${errorText}`)
+    // Para desenvolvimento/teste: usar dados mockados
+    const isDevelopment = import.meta.env.DEV || sessionStorage.getItem('testLogin') === 'true'
+    
+    if (isDevelopment) {
+      // Simula o processo de upload e análise
+      uploadResponse.value = 'Analisando documento...'
+      
+      // Simula tempo de processamento
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Obtém dados mockados
+      const cartaosList = mockBackendResponse()
+      
+      // Armazena os cartões no estado
+      sharedCartoes.value = cartaosList
+      uploadResponse.value = `${cartaosList.length} cartão(ões) criado(s) com sucesso!`
+      uploading.value = false
+      return
     }
 
-    const result = await response.json()
-    uploadResponse.value = result
+    // Fluxo real para produção
+    const formData = new FormData()
+    formData.append('user_id', currentUserId.value)
+    formData.append('status', 'uploaded')
+    formData.append(fileFieldName, file)
+
+    uploadResponse.value = 'Enviando arquivo para processamento...'
+
+    // 1. Upload do arquivo para o PocketBase
+    const record = await pb.collection(uploadCollection).create(formData)
+    const fileName = (record as Record<string, any>)[fileFieldName] as string | undefined
+
+    if (!fileName) {
+      throw new Error('PocketBase não retornou o arquivo.')
+    }
+
+    // 2. Envia para o webhook e processa a resposta diretamente
+    const uploadUri = pb.files.getUrl(record, fileName)
+    uploadResponse.value = 'Analisando documento...'
+    
+    const webhookResponse = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        'upload-uri': uploadUri,
+        'record-id': record.id
+      }),
+    })
+
+    if (!webhookResponse.ok) {
+      throw new Error('Falha ao processar a imagem no servidor.')
+    }
+
+    // 3. Processa a resposta do webhook diretamente
+    const webhookData = await webhookResponse.json()
+    const cartaosList = processWebhookResponse(webhookData)
+    
+    // 4. Armazena os cartões no estado
+    sharedCartoes.value = cartaosList
+    
+    // 5. Apaga a imagem do PocketBase
+    await deleteUploadedImage(record.id)
+    
+    uploadResponse.value = `${cartaosList.length} cartão(ões) criado(s) com sucesso!`
+    
   } catch (error: any) {
-    uploadError.value = `Failed to upload ${file.name}: ${error.message}`
-    console.error('Upload error:', error)
+    uploadError.value = `Falha ao processar ${file.name}: ${error.message}`
+    console.error('Erro no upload:', error)
   } finally {
     uploading.value = false
   }
@@ -264,10 +367,22 @@ const getFilePreviewUrl = (file: File) => {
             Enviando arquivo...
           </div>
           <div v-else-if="uploadResponse" class="upload-status-message upload-success">
-            Upload realizado com sucesso! <br /> {{ uploadResponse }}
+            {{ uploadResponse }}
           </div>
           <div v-else-if="uploadError" class="upload-status-message upload-error">
             Erro no upload: <br /> {{ uploadError }}
+          </div>
+          
+          <!-- Exibe os cartões processados -->
+          <div v-if="sharedCartoes.length > 0" class="shared-cartoes-section">
+            <h4 class="shared-cartoes-heading">Cartões Processados:</h4>
+            <div class="cartoes-list">
+              <CartaoItem 
+                v-for="(cartao, index) in sharedCartoes" 
+                :key="index" 
+                :cartao="cartao"
+              />
+            </div>
           </div>
         </div>
 
@@ -538,6 +653,25 @@ const getFilePreviewUrl = (file: File) => {
   margin-top: 1rem;
   font-size: 0.875rem;
   color: var(--color-text-light);
+}
+
+.shared-cartoes-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px dashed var(--color-border);
+}
+
+.shared-cartoes-heading {
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--color-text-dark);
+  margin-bottom: 1rem;
+}
+
+.cartoes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .separator {
