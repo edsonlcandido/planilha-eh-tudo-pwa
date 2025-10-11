@@ -37,8 +37,12 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       devOptions: {
         enabled: true, // Set to true to enable PWA in development mode for testing A2HS
+        type: 'module',
       },
       manifest: {
         name: 'Planiha Eh Tudo',
@@ -69,9 +73,6 @@ export default defineConfig({
             ],
           },
         },
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,vue}'],
       },
     }),
   ],

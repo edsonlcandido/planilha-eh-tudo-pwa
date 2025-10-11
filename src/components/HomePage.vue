@@ -267,17 +267,63 @@ onMounted(async () => {
   // Handle PWA install prompt
   window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
 
-  // Handle Web Share Target API data on component mount
+  // Check if this is a share target redirect
+  const urlParams = new URLSearchParams(window.location.search)
+  if (urlParams.get('share') === 'true') {
+    // Retrieve shared data from cache
+    try {
+      const cache = await caches.open('share-target-cache')
+      const response = await cache.match('/pwa/shared-data')
+      if (response) {
+        const shareData = await response.json()
+        
+        // Set the shared data
+        sharedTitle.value = shareData.title || ''
+        sharedText.value = shareData.text || ''
+        sharedUrl.value = shareData.url || ''
+        
+        // If there's a file, retrieve it and process
+        if (shareData.file) {
+          const fileResponse = await cache.match(`/pwa/shared-file-${shareData.timestamp}`)
+          if (fileResponse) {
+            const blob = await fileResponse.blob()
+            const fileName = fileResponse.headers.get('X-File-Name') || 'shared-file'
+            const file = new File([blob], fileName, { type: blob.type })
+            sharedFiles.value = [file]
+            
+            // Auto-upload the shared file
+            await uploadSharedFile(file)
+          }
+        }
+        
+        // Clean up the cache
+        await cache.delete('/pwa/shared-data')
+        if (shareData.timestamp) {
+          await cache.delete(`/pwa/shared-file-${shareData.timestamp}`)
+        }
+      }
+    } catch (error) {
+      console.error('Error retrieving shared data:', error)
+    }
+    
+    // Clean up the URL
+    window.history.replaceState({}, '', '/pwa/')
+  }
+
+  // Handle Web Share Target API data on component mount (for browsers supporting Launch Queue)
   if ('launchQueue' in window && 'setConsumer' in (window as any).launchQueue) {
     (window as any).launchQueue.setConsumer(handleLaunchParams);
   } else {
     // Fallback for browsers not supporting Launch Queue API (e.g., direct URL share without files)
-    const urlParams = new URLSearchParams(window.location.search);
     const launchParams: { [key: string]: any } = {};
     urlParams.forEach((value, key) => {
-      launchParams[key] = value;
+      if (key !== 'share') {
+        launchParams[key] = value;
+      }
     });
-    handleLaunchParams(launchParams as { text?: string, url?: string, title?: string });
+    if (Object.keys(launchParams).length > 0) {
+      handleLaunchParams(launchParams as { text?: string, url?: string, title?: string });
+    }
   }
 });
 
