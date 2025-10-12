@@ -5,6 +5,7 @@ import pb from '../pocketbase' // Import PocketBase instance
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import UploadArea from './UploadArea.vue'
 import CartaoItem from './CartaoItem.vue'
+import EntryModal from './EntryModal.vue'
 import type { CartaoData } from '../types'
 
 const router = useRouter()
@@ -23,6 +24,25 @@ const uploadError = ref<string | null>(null)
 const uploading = ref(false)
 const isLoading = ref(true)
 const sharedCartoes = ref<CartaoData[]>([])
+
+// Modal state for shared cards
+const showModal = ref(false)
+const selectedCartao = ref<CartaoData | null>(null)
+const selectedCartaoIndex = ref<number>(-1)
+
+// Autocomplete data - extracted from existing cartoes
+const contas = computed(() => {
+  const uniqueContas = new Set(sharedCartoes.value.map(c => c.conta))
+  return Array.from(uniqueContas)
+})
+
+const categorias = computed(() => {
+  const uniqueCategorias = new Set(sharedCartoes.value.map(c => c.categoria))
+  // Add some default categories
+  const defaults = ['Alimentação', 'Transporte', 'Saúde', 'Educação', 'Moradia', 'Lazer', 'Outros', 'Receita']
+  defaults.forEach(cat => uniqueCategorias.add(cat))
+  return Array.from(uniqueCategorias)
+})
 
 // Upload configuration
 const uploadCollection = 'uploads'
@@ -244,6 +264,71 @@ const uploadSharedFile = async (file: File) => {
   }
 }
 
+// Handle cartao click to open modal for shared cards
+const handleSharedCartaoClick = (cartao: CartaoData) => {
+  const index = sharedCartoes.value.findIndex(c => 
+    c.data === cartao.data && 
+    c.descricao === cartao.descricao && 
+    c.valor === cartao.valor
+  )
+  selectedCartaoIndex.value = index
+  selectedCartao.value = { ...cartao }
+  showModal.value = true
+}
+
+// Handle modal close
+const handleModalClose = () => {
+  showModal.value = false
+  selectedCartao.value = null
+  selectedCartaoIndex.value = -1
+}
+
+// Handle save from modal
+const handleSave = async (updatedCartao: CartaoData) => {
+  try {
+    // Update the cartao in the array
+    if (selectedCartaoIndex.value >= 0) {
+      sharedCartoes.value[selectedCartaoIndex.value] = updatedCartao
+    }
+
+    // Send to endpoint - using the same webhook URL pattern
+    const saveEndpoint = import.meta.env.VITE_SAVE_ENTRY_URL || 
+      'https://ehtudo-n8n.pfdgdz.easypanel.host/webhook/v1/planilha-eh-tudo-save-entry'
+    
+    const response = await fetch(saveEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...updatedCartao,
+        user_id: currentUserId.value
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error('Falha ao salvar o lançamento')
+    }
+
+    // Close modal
+    handleModalClose()
+    
+    // Show success message
+    uploadResponse.value = 'Lançamento atualizado com sucesso!'
+    
+    // Clear success message after 3 seconds
+    setTimeout(() => {
+      if (uploadResponse.value === 'Lançamento atualizado com sucesso!') {
+        uploadResponse.value = null
+      }
+    }, 3000)
+
+  } catch (error: any) {
+    console.error('Erro ao salvar:', error)
+    alert('Erro ao salvar o lançamento: ' + (error?.message || 'Erro desconhecido'))
+  }
+}
+
 const handleLaunchParams = async (launchParams: { files?: FileSystemFileHandle[], text?: string, url?: string, title?: string }) => {
   if (launchParams.files && launchParams.files.length > 0) {
     for (const fileHandle of launchParams.files) {
@@ -427,6 +512,7 @@ const getFilePreviewUrl = (file: File) => {
                 v-for="(cartao, index) in sharedCartoes" 
                 :key="index" 
                 :cartao="cartao"
+                @click="handleSharedCartaoClick"
               />
             </div>
           </div>
@@ -434,6 +520,16 @@ const getFilePreviewUrl = (file: File) => {
 
         <p class="shared-feedback">Este conteúdo foi compartilhado com seu PWA!</p>
       </div>
+
+      <!-- Modal de edição para cartões compartilhados -->
+      <EntryModal
+        :show="showModal"
+        :cartao="selectedCartao"
+        :contas="contas"
+        :categorias="categorias"
+        @close="handleModalClose"
+        @save="handleSave"
+      />
 
       <hr class="separator" />
     </template>
@@ -642,29 +738,43 @@ const getFilePreviewUrl = (file: File) => {
   border-radius: 4px;
   margin-bottom: 0.5rem;
   border: 1px solid var(--color-border);
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .file-name {
   font-weight: 500;
   color: var(--color-text-dark);
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .file-type {
   font-size: 0.875rem;
   color: var(--color-text-light);
+  flex-shrink: 0;
 }
 
 .file-icon {
   font-size: 1rem;
+  flex-shrink: 0;
 }
 
 .file-preview-image {
   max-width: 80px;
   max-height: 80px;
+  min-width: 80px;
+  min-height: 80px;
+  width: 80px;
+  height: 80px;
   border-radius: 4px;
   object-fit: cover;
   margin-left: auto;
   border: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 .upload-status-message {
