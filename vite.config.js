@@ -45,9 +45,9 @@ export default defineConfig({
         type: 'module',
       },
       manifest: {
-        name: 'Planiha Eh Tudo',
-        short_name: 'Planiha',
-        description: 'Planilha Eh tudo',
+        name: 'Planilha Eh Tudo',
+        short_name: 'Planilha Eh Tudo',
+        description: 'Planilha Eh Tudo',
         theme_color: '#3B82F6',
         background_color: '#F9FAFB',
         display: 'standalone',
