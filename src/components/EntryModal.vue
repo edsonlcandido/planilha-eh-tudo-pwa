@@ -712,7 +712,6 @@ textarea.form-control {
   }
 
   .entry-modal__content {
-    max-width: 100%;
     max-height: 90vh;
     border-radius: 0;
     margin: 1rem;
@@ -727,5 +726,12 @@ textarea.form-control {
     flex-direction: row;
   }
 
+  .button {
+    width: 100%;
+  }
+  .entry-toggle {
+    width: 2.5rem;
+    font-size: 1rem;
+  }
 }
 </style>
