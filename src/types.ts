@@ -15,3 +15,29 @@ export interface ProcessImageResponse {
   message?: string;
   success: boolean;
 }
+
+// Interface para entry da planilha (formato da API)
+export interface SheetEntry {
+  categoria: string;
+  conta: string;
+  data: number | string;
+  descricao: string;
+  obs: string;
+  orcamento: number | string;
+  rowIndex: number;
+  valor: number;
+}
+
+// Interface para resposta da API de entries
+export interface GetEntriesResponse {
+  entries: SheetEntry[];
+  limit: number;
+  success: boolean;
+  total: number;
+}
+
+// Interface para resposta da API de categorias
+export interface GetCategoriesResponse {
+  categories: string[];
+  success: boolean;
+}

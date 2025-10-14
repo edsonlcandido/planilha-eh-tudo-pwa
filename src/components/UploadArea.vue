@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import pb from '../pocketbase';
 import CartaoItem from './CartaoItem.vue';
+import EntryModal from './EntryModal.vue';
 import type { CartaoData, ProcessImageResponse } from '../types';
 
 const files = ref<File[]>([]);
@@ -9,6 +10,25 @@ const uploadStatus = ref<'idle' | 'uploading' | 'analyzing' | 'success' | 'error
 const uploadMessage = ref('');
 const cartoes = ref<CartaoData[]>([]);
 const recordId = ref<string | null>(null); // Para armazenar o ID do registro do PocketBase
+
+// Modal state
+const showModal = ref(false);
+const selectedCartao = ref<CartaoData | null>(null);
+const selectedCartaoIndex = ref<number>(-1);
+
+// Autocomplete data - extracted from existing cartoes
+const contas = computed(() => {
+  const uniqueContas = new Set(cartoes.value.map(c => c.conta));
+  return Array.from(uniqueContas);
+});
+
+const categorias = computed(() => {
+  const uniqueCategorias = new Set(cartoes.value.map(c => c.categoria));
+  // Add some default categories
+  const defaults = ['Alimentação', 'Transporte', 'Saúde', 'Educação', 'Moradia', 'Lazer', 'Outros', 'Receita'];
+  defaults.forEach(cat => uniqueCategorias.add(cat));
+  return Array.from(uniqueCategorias);
+});
 
 const uploadCollection = 'uploads';
 const fileFieldName = 'file';
@@ -256,11 +276,78 @@ const handleFileSelect = (e: Event) => {
   }
 };
 
+// Handle cartao click to open modal
+const handleCartaoClick = (cartao: CartaoData) => {
+  const index = cartoes.value.findIndex(c => 
+    c.data === cartao.data && 
+    c.descricao === cartao.descricao && 
+    c.valor === cartao.valor
+  );
+  selectedCartaoIndex.value = index;
+  selectedCartao.value = { ...cartao };
+  showModal.value = true;
+};
+
+// Handle modal close
+const handleModalClose = () => {
+  showModal.value = false;
+  selectedCartao.value = null;
+  selectedCartaoIndex.value = -1;
+};
+
+// Handle save from modal
+const handleSave = async (updatedCartao: CartaoData) => {
+  try {
+    // Update the cartao in the array
+    if (selectedCartaoIndex.value >= 0) {
+      cartoes.value[selectedCartaoIndex.value] = updatedCartao;
+    }
+
+    // Send to endpoint - using the same webhook URL pattern
+    const saveEndpoint = import.meta.env.VITE_SAVE_ENTRY_URL || 
+      'https://ehtudo-n8n.pfdgdz.easypanel.host/webhook/v1/planilha-eh-tudo-save-entry';
+    
+    const response = await fetch(saveEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...updatedCartao,
+        user_id: currentUserId.value
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao salvar o lançamento');
+    }
+
+    // Close modal
+    handleModalClose();
+    
+    // Show success message
+    uploadStatus.value = 'success';
+    uploadMessage.value = 'Lançamento atualizado com sucesso!';
+    
+    // Clear success message after 3 seconds
+    setTimeout(() => {
+      if (uploadStatus.value === 'success') {
+        uploadMessage.value = '';
+        uploadStatus.value = 'idle';
+      }
+    }, 3000);
+
+  } catch (error: any) {
+    console.error('Erro ao salvar:', error);
+    alert('Erro ao salvar o lançamento: ' + (error?.message || 'Erro desconhecido'));
+  }
+};
+
 </script>
 <template>
     <div class="upload-area">
         <h2 class="upload-title">Análise de Documento</h2>
-        <p class="upload-description">Envie extratos, comprovantes ou notas fiscais para análise automática</p>
+        <p class="upload-description">Envie extratos e comprovantes para análise automática</p>
     </div>
 
         <!-- Área de seleção de arquivos simplificada -->
@@ -322,9 +409,24 @@ const handleFileSelect = (e: Event) => {
         <button class="new-analysis-button" @click="clearFiles">Nova Análise</button>
       </div>
       <div class="cartoes-list">
-        <CartaoItem v-for="(cartao, index) in cartoes" :key="index" :cartao="cartao" />
+        <CartaoItem 
+          v-for="(cartao, index) in cartoes" 
+          :key="index" 
+          :cartao="cartao"
+          @click="handleCartaoClick"
+        />
       </div>
     </div>
+
+    <!-- Modal de edição -->
+    <EntryModal
+      :show="showModal"
+      :cartao="selectedCartao"
+      :contas="contas"
+      :categorias="categorias"
+      @close="handleModalClose"
+      @save="handleSave"
+    />
 </template>
 <style scoped>
 .upload-area {

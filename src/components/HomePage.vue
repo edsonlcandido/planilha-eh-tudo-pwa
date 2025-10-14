@@ -2,8 +2,11 @@
 import HelloWorld from './HelloWorld.vue'
 import { useRouter } from 'vue-router'
 import pb from '../pocketbase' // Import PocketBase instance
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import UploadArea from './UploadArea.vue'
+import CartaoItem from './CartaoItem.vue'
+import EntryModal from './EntryModal.vue'
+import type { CartaoData } from '../types'
 
 const router = useRouter()
 
@@ -20,6 +23,40 @@ const uploadResponse = ref<any>(null)
 const uploadError = ref<string | null>(null)
 const uploading = ref(false)
 const isLoading = ref(true)
+const sharedCartoes = ref<CartaoData[]>([])
+
+// Modal state for shared cards
+const showModal = ref(false)
+const selectedCartao = ref<CartaoData | null>(null)
+const selectedCartaoIndex = ref<number>(-1)
+
+// Autocomplete data - extracted from existing cartoes
+const contas = computed(() => {
+  const uniqueContas = new Set(sharedCartoes.value.map(c => c.conta))
+  return Array.from(uniqueContas)
+})
+
+const categorias = computed(() => {
+  const uniqueCategorias = new Set(sharedCartoes.value.map(c => c.categoria))
+  // Add some default categories
+  const defaults = ['Alimentação', 'Transporte', 'Saúde', 'Educação', 'Moradia', 'Lazer', 'Outros', 'Receita']
+  defaults.forEach(cat => uniqueCategorias.add(cat))
+  return Array.from(uniqueCategorias)
+})
+
+// Upload configuration
+const uploadCollection = 'uploads'
+const fileFieldName = 'file'
+const webhookUrl = import.meta.env.VITE_WEBHOOK_URL
+
+const currentUserId = computed(() => {
+  // Para login de teste, usa um ID fictício
+  const testLogin = sessionStorage.getItem('testLogin')
+  if (testLogin === 'true') {
+    return 'test-user-id'
+  }
+  return pb.authStore.model?.id || ''
+})
 
 const logout = () => {
   pb.authStore.clear()
@@ -92,52 +129,203 @@ const installPWA = async () => {
 
 // --- Share Target Handling Logic ---
 
+// Processa a resposta do webhook e extrai os cartões
+const processWebhookResponse = (responseData: any): CartaoData[] => {
+  // A resposta pode ser diretamente um array ou um objeto com a propriedade cartoes
+  if (Array.isArray(responseData)) {
+    return responseData as CartaoData[]
+  } else if (responseData && responseData.cartoes && Array.isArray(responseData.cartoes)) {
+    return responseData.cartoes as CartaoData[]
+  } else if (responseData && responseData.data && Array.isArray(responseData.data)) {
+    return responseData.data as CartaoData[]
+  } else {
+    throw new Error('Formato de resposta inválido do backend')
+  }
+}
+
+// Função para simular resposta do backend durante desenvolvimento/teste
+const mockBackendResponse = (): CartaoData[] => {
+  return [
+    {
+      data: "23/09/2025 15:02",
+      conta: "NU PAGAMENTOS - IP",
+      valor: 250,
+      descricao: "CLINICA FRANCO PEGHINI LTDA",
+      categoria: "Outros",
+      orcamento: "23/09/2025",
+      observacao: "Transferência via Pix para Clinica Franco Peghini Ltda"
+    },
+    {
+      data: "22/09/2025 10:30",
+      conta: "BANCO DO BRASIL",
+      valor: -45.50,
+      descricao: "SUPERMERCADO EXEMPLO",
+      categoria: "Alimentação",
+      orcamento: "22/09/2025",
+      observacao: "Compra no supermercado - débito automático"
+    }
+  ]
+}
+
+// Apaga a imagem do PocketBase após o processamento
+const deleteUploadedImage = async (recordId: string): Promise<void> => {
+  try {
+    await pb.collection(uploadCollection).delete(recordId)
+    console.log('Imagem apagada com sucesso do PocketBase')
+  } catch (error: any) {
+    console.error('Erro ao apagar imagem:', error)
+    // Não propaga o erro pois os cartões já foram criados
+  }
+}
+
 const uploadSharedFile = async (file: File) => {
   uploading.value = true
   uploadResponse.value = null
   uploadError.value = null
+  sharedCartoes.value = []
 
-  const authToken = pb.authStore.token // Get token from PocketBase auth store
-  if (!authToken) {
-    uploadError.value = 'Authentication token not found. Please log in.'
-    router.push('/login')
+  if (!currentUserId.value) {
+    uploadError.value = 'Faça login para enviar arquivos.'
     uploading.value = false
     return
   }
 
-  const formData = new FormData()
-  formData.append('file', file) // Use 'file' as the field name for consistency
-
   try {
-    // Simulate backend request to /api/upload-file
-    // In a real scenario, this would be your actual PocketBase collection upload
-    const response = await fetch('/api/upload-file', {
+    // Para desenvolvimento/teste: usar dados mockados
+    const isDevelopment = import.meta.env.DEV || sessionStorage.getItem('testLogin') === 'true'
+    
+    if (isDevelopment) {
+      // Simula o processo de upload e análise
+      uploadResponse.value = 'Analisando documento...'
+      
+      // Simula tempo de processamento
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Obtém dados mockados
+      const cartaosList = mockBackendResponse()
+      
+      // Armazena os cartões no estado
+      sharedCartoes.value = cartaosList
+      uploadResponse.value = `${cartaosList.length} cartão(ões) criado(s) com sucesso!`
+      uploading.value = false
+      return
+    }
+
+    // Fluxo real para produção
+    const formData = new FormData()
+    formData.append('user_id', currentUserId.value)
+    formData.append('status', 'uploaded')
+    formData.append(fileFieldName, file)
+
+    uploadResponse.value = 'Enviando arquivo para processamento...'
+
+    // 1. Upload do arquivo para o PocketBase
+    const record = await pb.collection(uploadCollection).create(formData)
+    const fileName = (record as Record<string, any>)[fileFieldName] as string | undefined
+
+    if (!fileName) {
+      throw new Error('PocketBase não retornou o arquivo.')
+    }
+
+    // 2. Envia para o webhook e processa a resposta diretamente
+    const uploadUri = pb.files.getUrl(record, fileName)
+    uploadResponse.value = 'Analisando documento...'
+    
+    const webhookResponse = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        'upload-uri': uploadUri,
+        'record-id': record.id
+      }),
+    })
+
+    if (!webhookResponse.ok) {
+      throw new Error('Falha ao processar a imagem no servidor.')
+    }
+
+    // 3. Processa a resposta do webhook diretamente
+    const webhookData = await webhookResponse.json()
+    const cartaosList = processWebhookResponse(webhookData)
+    
+    // 4. Armazena os cartões no estado
+    sharedCartoes.value = cartaosList
+    
+    // 5. Apaga a imagem do PocketBase
+    await deleteUploadedImage(record.id)
+    
+    uploadResponse.value = `${cartaosList.length} cartão(ões) criado(s) com sucesso!`
+    
+  } catch (error: any) {
+    uploadError.value = `Falha ao processar ${file.name}: ${error.message}`
+    console.error('Erro no upload:', error)
+  } finally {
+    uploading.value = false
+  }
+}
+
+// Handle cartao click to open modal for shared cards
+const handleSharedCartaoClick = (cartao: CartaoData) => {
+  const index = sharedCartoes.value.findIndex(c => 
+    c.data === cartao.data && 
+    c.descricao === cartao.descricao && 
+    c.valor === cartao.valor
+  )
+  selectedCartaoIndex.value = index
+  selectedCartao.value = { ...cartao }
+  showModal.value = true
+}
+
+// Handle modal close
+const handleModalClose = () => {
+  showModal.value = false
+  selectedCartao.value = null
+  selectedCartaoIndex.value = -1
+}
+
+// Handle save from modal
+const handleSave = async (updatedCartao: CartaoData) => {
+  try {
+    // Update the cartao in the array
+    if (selectedCartaoIndex.value >= 0) {
+      sharedCartoes.value[selectedCartaoIndex.value] = updatedCartao
+    }
+
+    // Send to endpoint - using the same webhook URL pattern
+    const saveEndpoint = import.meta.env.VITE_SAVE_ENTRY_URL || 
+      'https://ehtudo-n8n.pfdgdz.easypanel.host/webhook/v1/planilha-eh-tudo-save-entry'
+    
+    const response = await fetch(saveEndpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${authToken}`,
-        // 'Content-Type': 'multipart/form-data' - fetch sets this automatically with FormData
+        'Content-Type': 'application/json',
       },
-      body: formData,
+      body: JSON.stringify({
+        ...updatedCartao,
+        user_id: currentUserId.value
+      }),
     })
 
     if (!response.ok) {
-      let errorText = await response.text()
-      try {
-        const errorJson = JSON.parse(errorText)
-        errorText = errorJson.message || errorText
-      } catch (e) {
-        // Not JSON, use plain text
-      }
-      throw new Error(`HTTP error! Status: ${response.status}. ${errorText}`)
+      throw new Error('Falha ao salvar o lançamento')
     }
 
-    const result = await response.json()
-    uploadResponse.value = result
+    // Close modal
+    handleModalClose()
+    
+    // Show success message
+    uploadResponse.value = 'Lançamento atualizado com sucesso!'
+    
+    // Clear success message after 3 seconds
+    setTimeout(() => {
+      if (uploadResponse.value === 'Lançamento atualizado com sucesso!') {
+        uploadResponse.value = null
+      }
+    }, 3000)
+
   } catch (error: any) {
-    uploadError.value = `Failed to upload ${file.name}: ${error.message}`
-    console.error('Upload error:', error)
-  } finally {
-    uploading.value = false
+    console.error('Erro ao salvar:', error)
+    alert('Erro ao salvar o lançamento: ' + (error?.message || 'Erro desconhecido'))
   }
 }
 
@@ -164,17 +352,63 @@ onMounted(async () => {
   // Handle PWA install prompt
   window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
 
-  // Handle Web Share Target API data on component mount
+  // Check if this is a share target redirect
+  const urlParams = new URLSearchParams(window.location.search)
+  if (urlParams.get('share') === 'true') {
+    // Retrieve shared data from cache
+    try {
+      const cache = await caches.open('share-target-cache')
+      const response = await cache.match('/pwa/shared-data')
+      if (response) {
+        const shareData = await response.json()
+        
+        // Set the shared data
+        sharedTitle.value = shareData.title || ''
+        sharedText.value = shareData.text || ''
+        sharedUrl.value = shareData.url || ''
+        
+        // If there's a file, retrieve it and process
+        if (shareData.file) {
+          const fileResponse = await cache.match(`/pwa/shared-file-${shareData.timestamp}`)
+          if (fileResponse) {
+            const blob = await fileResponse.blob()
+            const fileName = fileResponse.headers.get('X-File-Name') || 'shared-file'
+            const file = new File([blob], fileName, { type: blob.type })
+            sharedFiles.value = [file]
+            
+            // Auto-upload the shared file
+            await uploadSharedFile(file)
+          }
+        }
+        
+        // Clean up the cache
+        await cache.delete('/pwa/shared-data')
+        if (shareData.timestamp) {
+          await cache.delete(`/pwa/shared-file-${shareData.timestamp}`)
+        }
+      }
+    } catch (error) {
+      console.error('Error retrieving shared data:', error)
+    }
+    
+    // Clean up the URL
+    window.history.replaceState({}, '', '/pwa/')
+  }
+
+  // Handle Web Share Target API data on component mount (for browsers supporting Launch Queue)
   if ('launchQueue' in window && 'setConsumer' in (window as any).launchQueue) {
     (window as any).launchQueue.setConsumer(handleLaunchParams);
   } else {
     // Fallback for browsers not supporting Launch Queue API (e.g., direct URL share without files)
-    const urlParams = new URLSearchParams(window.location.search);
     const launchParams: { [key: string]: any } = {};
     urlParams.forEach((value, key) => {
-      launchParams[key] = value;
+      if (key !== 'share') {
+        launchParams[key] = value;
+      }
     });
-    handleLaunchParams(launchParams as { text?: string, url?: string, title?: string });
+    if (Object.keys(launchParams).length > 0) {
+      handleLaunchParams(launchParams as { text?: string, url?: string, title?: string });
+    }
   }
 });
 
@@ -192,6 +426,9 @@ const getFilePreviewUrl = (file: File) => {
   }
   return null;
 };
+
+// App version injected at build time via Vite config
+const appVersion = import.meta.env.APP_VERSION || ''
 </script>
 
 <template>
@@ -202,8 +439,8 @@ const getFilePreviewUrl = (file: File) => {
     </div>
     
     <template v-else>
-      <h1 class="page-title">Bem vindo ao nosso webapp!</h1>
-      <p class="page-description">Você está logado.</p>
+      <h1 class="page-title">Bem vindo ao nosso app!</h1>
+      <p class="page-description">Essa é nossa extensão para celular para poder enviar comprovantes e processar usando agentes de IA.</p>
 
       <!-- PWA Install Button -->
       <div v-if="showInstallButton" class="install-section">
@@ -216,7 +453,7 @@ const getFilePreviewUrl = (file: File) => {
       <UploadArea/>
 
       <!-- PWA Information Section -->
-      <div class="pwa-info-section">
+      <div v-if="showInstallButton"  class="pwa-info-section">
         <h3 class="pwa-info-title">💡 PWA Instalação</h3>
         <div class="pwa-info-content">
           <p>Este aplicativo é um Progressive Web App (PWA) e pode ser instalado em seu dispositivo!</p>
@@ -264,17 +501,43 @@ const getFilePreviewUrl = (file: File) => {
             Enviando arquivo...
           </div>
           <div v-else-if="uploadResponse" class="upload-status-message upload-success">
-            Upload realizado com sucesso! <br /> {{ uploadResponse }}
+            {{ uploadResponse }}
           </div>
           <div v-else-if="uploadError" class="upload-status-message upload-error">
             Erro no upload: <br /> {{ uploadError }}
+          </div>
+          
+          <!-- Exibe os cartões processados -->
+          <div v-if="sharedCartoes.length > 0" class="shared-cartoes-section">
+            <h4 class="shared-cartoes-heading">Cartões Processados:</h4>
+            <div class="cartoes-list">
+              <CartaoItem 
+                v-for="(cartao, index) in sharedCartoes" 
+                :key="index" 
+                :cartao="cartao"
+                @click="handleSharedCartaoClick"
+              />
+            </div>
           </div>
         </div>
 
         <p class="shared-feedback">Este conteúdo foi compartilhado com seu PWA!</p>
       </div>
 
+      <!-- Modal de edição para cartões compartilhados -->
+      <EntryModal
+        :show="showModal"
+        :cartao="selectedCartao"
+        :contas="contas"
+        :categorias="categorias"
+        @close="handleModalClose"
+        @save="handleSave"
+      />
+
       <hr class="separator" />
+      <div class="app-version" aria-hidden="true">
+        <small>Versão: {{ appVersion || 'dev' }}</small>
+      </div>
     </template>
   </div>
 </template>
@@ -481,29 +744,43 @@ const getFilePreviewUrl = (file: File) => {
   border-radius: 4px;
   margin-bottom: 0.5rem;
   border: 1px solid var(--color-border);
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .file-name {
   font-weight: 500;
   color: var(--color-text-dark);
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .file-type {
   font-size: 0.875rem;
   color: var(--color-text-light);
+  flex-shrink: 0;
 }
 
 .file-icon {
   font-size: 1rem;
+  flex-shrink: 0;
 }
 
 .file-preview-image {
   max-width: 80px;
   max-height: 80px;
+  min-width: 80px;
+  min-height: 80px;
+  width: 80px;
+  height: 80px;
   border-radius: 4px;
   object-fit: cover;
   margin-left: auto;
   border: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 .upload-status-message {
@@ -540,10 +817,35 @@ const getFilePreviewUrl = (file: File) => {
   color: var(--color-text-light);
 }
 
+.shared-cartoes-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px dashed var(--color-border);
+}
+
+.shared-cartoes-heading {
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--color-text-dark);
+  margin-bottom: 1rem;
+}
+
+.cartoes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 .separator {
   border: none;
   border-top: 1px solid var(--color-border);
   margin: 2rem 0;
+}
+
+.app-version {
+  text-align: center;
+  color: var(--color-text-light);
+  margin-top: 0.5rem;
 }
 
 /* Responsive adjustments */
