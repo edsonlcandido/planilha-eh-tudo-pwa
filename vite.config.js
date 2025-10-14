@@ -41,8 +41,8 @@ export default defineConfig({
         enabled: true, // Set to true to enable PWA in development mode for testing A2HS
       },
       manifest: {
-        name: 'Planiha Eh Tudo',
-        short_name: 'Planiha',
+        name: 'Planilha Eh Tudo',
+        short_name: 'Planilha Eh Tudo',
         description: 'Planilha Eh tudo',
         theme_color: '#3B82F6',
         background_color: '#F9FAFB',

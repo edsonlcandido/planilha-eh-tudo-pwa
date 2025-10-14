@@ -216,7 +216,7 @@ const getFilePreviewUrl = (file: File) => {
       <UploadArea/>
 
       <!-- PWA Information Section -->
-      <div class="pwa-info-section">
+      <div v-if="showInstallButton" class="pwa-info-section">
         <h3 class="pwa-info-title">💡 PWA Instalação</h3>
         <div class="pwa-info-content">
           <p>Este aplicativo é um Progressive Web App (PWA) e pode ser instalado em seu dispositivo!</p>

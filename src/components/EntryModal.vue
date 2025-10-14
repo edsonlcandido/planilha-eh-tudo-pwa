@@ -478,7 +478,7 @@ const orcamentoInput = computed({
   background: white;
   padding: 1.5rem;
   border-radius: 4px;
-  max-width: 600px;
+  max-width: 480px;
   width: 90%;
   position: relative;
   max-height: 90vh;
@@ -713,9 +713,9 @@ textarea.form-control {
 
   .entry-modal__content {
     max-width: 100%;
-    max-height: 100vh;
+    max-height: 90vh;
     border-radius: 0;
-    width: 100%;
+    margin: 1rem;
   }
 
   .entry-modal__title {
@@ -724,11 +724,8 @@ textarea.form-control {
   }
 
   .form-actions {
-    flex-direction: column;
+    flex-direction: row;
   }
 
-  .button {
-    width: 100%;
-  }
 }
 </style>
