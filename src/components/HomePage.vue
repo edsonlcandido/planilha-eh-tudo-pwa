@@ -426,6 +426,9 @@ const getFilePreviewUrl = (file: File) => {
   }
   return null;
 };
+
+// App version injected at build time via Vite config
+const appVersion = import.meta.env.APP_VERSION || ''
 </script>
 
 <template>
@@ -532,6 +535,9 @@ const getFilePreviewUrl = (file: File) => {
       />
 
       <hr class="separator" />
+      <div class="app-version" aria-hidden="true">
+        <small>Versão: {{ appVersion || 'dev' }}</small>
+      </div>
     </template>
   </div>
 </template>
@@ -834,6 +840,12 @@ const getFilePreviewUrl = (file: File) => {
   border: none;
   border-top: 1px solid var(--color-border);
   margin: 2rem 0;
+}
+
+.app-version {
+  text-align: center;
+  color: var(--color-text-light);
+  margin-top: 0.5rem;
 }
 
 /* Responsive adjustments */
