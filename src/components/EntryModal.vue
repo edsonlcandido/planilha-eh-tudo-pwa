@@ -208,7 +208,7 @@ const selectCategoria = (categoria: string) => {
 }
 
 // Handle form submission
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (!formData.value.descricao || !formData.value.conta) {
     alert('Por favor, preencha os campos obrigatórios: Descrição e Conta')
     return
@@ -216,7 +216,57 @@ const handleSubmit = () => {
   
   // Apply the sign to the valor
   const finalValor = valorSign.value === '-' ? -Math.abs(formData.value.valor) : Math.abs(formData.value.valor)
-  emit('save', { ...formData.value, valor: finalValor })
+  const dataToSave = { ...formData.value, valor: finalValor }
+  
+  // Send data to append-entry endpoint
+  const appendEntryUrl = import.meta.env.VITE_APPEND_ENTRY_URL
+  if (!appendEntryUrl) {
+    console.warn('VITE_APPEND_ENTRY_URL não configurada')
+    emit('save', dataToSave)
+    return
+  }
+  
+  try {
+    // Obter token de autenticação do PocketBase
+    const token = pb.authStore.token
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json'
+    }
+    
+    // Adicionar token se estiver disponível
+    if (token) {
+      headers['Authorization'] = `${token}`
+    }
+    
+    // Preparar body no formato esperado pela API
+    const requestBody = {
+      data: dataToSave.data,
+      conta: dataToSave.conta,
+      valor: dataToSave.valor,
+      categoria: dataToSave.categoria,
+      orcamento: dataToSave.orcamento,
+      obs: dataToSave.observacao
+    }
+    
+    const response = await fetch(appendEntryUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(requestBody)
+    })
+    
+    if (response.ok) {
+      console.log('✅ Lançamento enviado com sucesso')
+      emit('save', dataToSave)
+    } else {
+      console.error(`❌ Erro ao enviar lançamento: ${response.status} ${response.statusText}`)
+      const errorText = await response.text()
+      alert(`Erro ao enviar lançamento: ${response.status} ${response.statusText}\n${errorText}`)
+    }
+  } catch (error) {
+    console.error('❌ Erro ao enviar lançamento:', error)
+    alert('Erro ao enviar lançamento. Verifique sua conexão e tente novamente.')
+  }
 }
 
 // Handle modal close
