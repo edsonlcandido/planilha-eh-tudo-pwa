@@ -207,6 +207,31 @@ const selectCategoria = (categoria: string) => {
   showCategoriaAutocomplete.value = false
 }
 
+// Convert date string "DD/MM/YYYY" to Excel epoch number
+const convertToExcelEpoch = (dateString: string): number => {
+  if (!dateString) return 0
+  
+  const parts = dateString.split('/')
+  if (parts.length !== 3) return 0
+  
+  const day = parseInt(parts[0], 10)
+  const month = parseInt(parts[1], 10)
+  const year = parseInt(parts[2], 10)
+  
+  // Create date object (months are 0-indexed in JS)
+  const date = new Date(year, month - 1, day)
+  
+  // Excel epoch starts at January 1, 1900
+  // But Excel incorrectly treats 1900 as a leap year, so we need to add 1 day for dates after Feb 28, 1900
+  const excelEpoch = new Date(1899, 11, 30) // December 30, 1899 (Excel's actual epoch)
+  
+  // Calculate difference in milliseconds and convert to days
+  const diffTime = date.getTime() - excelEpoch.getTime()
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+  
+  return diffDays
+}
+
 // Handle form submission
 const handleSubmit = async () => {
   if (!formData.value.descricao || !formData.value.conta) {
@@ -246,7 +271,7 @@ const handleSubmit = async () => {
       valor: dataToSave.valor,
       descricao: dataToSave.descricao,
       categoria: dataToSave.categoria,
-      orcamento: dataToSave.orcamento,
+      orcamento: convertToExcelEpoch(dataToSave.orcamento),
       obs: dataToSave.observacao
     }
     
