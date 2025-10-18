@@ -250,23 +250,33 @@ const handleSubmit = async () => {
       obs: dataToSave.observacao
     }
     
+    console.log('📤 Enviando requisição para:', appendEntryUrl)
+    console.log('📦 Body da requisição:', requestBody)
+    console.log('🔑 Token presente:', !!token)
+    
     const response = await fetch(appendEntryUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody)
     })
     
+    console.log('📥 Status da resposta:', response.status, response.statusText)
+    
     if (response.ok) {
+      const responseData = await response.json()
+      console.log('✅ Resposta da API:', responseData)
       console.log('✅ Lançamento enviado com sucesso')
       emit('save', dataToSave)
     } else {
       console.error(`❌ Erro ao enviar lançamento: ${response.status} ${response.statusText}`)
       const errorText = await response.text()
+      console.error('❌ Detalhes do erro:', errorText)
       alert(`Erro ao enviar lançamento: ${response.status} ${response.statusText}\n${errorText}`)
     }
   } catch (error) {
     console.error('❌ Erro ao enviar lançamento:', error)
-    alert('Erro ao enviar lançamento. Verifique sua conexão e tente novamente.')
+    console.error('❌ Tipo de erro:', error instanceof TypeError ? 'TypeError (Network/CORS)' : 'Outro erro')
+    alert(`Erro ao enviar lançamento: ${error instanceof Error ? error.message : 'Erro desconhecido'}\n\nVerifique sua conexão e tente novamente.`)
   }
 }
 
