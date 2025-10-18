@@ -256,6 +256,8 @@ const handleSubmit = async () => {
     
     const response = await fetch(appendEntryUrl, {
       method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
       headers,
       body: JSON.stringify(requestBody)
     })
