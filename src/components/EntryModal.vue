@@ -207,8 +207,33 @@ const selectCategoria = (categoria: string) => {
   showCategoriaAutocomplete.value = false
 }
 
+// Convert date string "DD/MM/YYYY" to Excel epoch number
+const convertToExcelEpoch = (dateString: string): number => {
+  if (!dateString) return 0
+  
+  const parts = dateString.split('/')
+  if (parts.length !== 3) return 0
+  
+  const day = parseInt(parts[0], 10)
+  const month = parseInt(parts[1], 10)
+  const year = parseInt(parts[2], 10)
+  
+  // Use UTC to avoid timezone issues
+  // Create date at noon UTC to avoid any edge cases with timezone conversions
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
+  
+  // Excel epoch starts at December 30, 1899 at noon UTC
+  const excelEpoch = new Date(Date.UTC(1899, 11, 30, 12, 0, 0))
+  
+  // Calculate difference in milliseconds and convert to days
+  const diffTime = date.getTime() - excelEpoch.getTime()
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+  
+  return diffDays
+}
+
 // Handle form submission
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (!formData.value.descricao || !formData.value.conta) {
     alert('Por favor, preencha os campos obrigatórios: Descrição e Conta')
     return
@@ -216,7 +241,71 @@ const handleSubmit = () => {
   
   // Apply the sign to the valor
   const finalValor = valorSign.value === '-' ? -Math.abs(formData.value.valor) : Math.abs(formData.value.valor)
-  emit('save', { ...formData.value, valor: finalValor })
+  const dataToSave = { ...formData.value, valor: finalValor }
+  
+  // Send data to append-entry endpoint
+  const appendEntryUrl = import.meta.env.VITE_APPEND_ENTRY_URL
+  if (!appendEntryUrl) {
+    console.warn('VITE_APPEND_ENTRY_URL não configurada')
+    emit('save', dataToSave)
+    return
+  }
+  
+  try {
+    // Obter token de autenticação do PocketBase
+    const token = pb.authStore.token
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json'
+    }
+    
+    // Adicionar token se estiver disponível
+    if (token) {
+      headers['Authorization'] = `${token}`
+    }
+    
+    // Preparar body no formato esperado pela API
+    const requestBody = {
+      data: dataToSave.data,
+      conta: dataToSave.conta,
+      valor: dataToSave.valor,
+      descricao: dataToSave.descricao,
+      categoria: dataToSave.categoria,
+      orcamento: convertToExcelEpoch(dataToSave.orcamento),
+      obs: dataToSave.observacao
+    }
+    
+    console.log('📤 Enviando requisição para:', appendEntryUrl)
+    console.log('📦 Body da requisição:', requestBody)
+    console.log('🔑 Token presente:', !!token)
+    
+    const response = await fetch(appendEntryUrl, {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
+      headers,
+      body: JSON.stringify(requestBody)
+    })
+    
+    console.log('📥 Status da resposta:', response.status, response.statusText)
+    
+    if (response.ok) {
+      const responseData = await response.json()
+      console.log('✅ Resposta da API:', responseData)
+      console.log('✅ Lançamento enviado com sucesso')
+      // Close modal without emitting save since data was already sent to backend
+      emit('close')
+    } else {
+      console.error(`❌ Erro ao enviar lançamento: ${response.status} ${response.statusText}`)
+      const errorText = await response.text()
+      console.error('❌ Detalhes do erro:', errorText)
+      alert(`Erro ao enviar lançamento: ${response.status} ${response.statusText}\n${errorText}`)
+    }
+  } catch (error) {
+    console.error('❌ Erro ao enviar lançamento:', error)
+    console.error('❌ Tipo de erro:', error instanceof TypeError ? 'TypeError (Network/CORS)' : 'Outro erro')
+    alert(`Erro ao enviar lançamento: ${error instanceof Error ? error.message : 'Erro desconhecido'}\n\nVerifique sua conexão e tente novamente.`)
+  }
 }
 
 // Handle modal close
