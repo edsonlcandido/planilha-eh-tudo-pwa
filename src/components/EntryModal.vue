@@ -244,6 +244,7 @@ const handleSubmit = async () => {
       data: dataToSave.data,
       conta: dataToSave.conta,
       valor: dataToSave.valor,
+      descricao: dataToSave.descricao,
       categoria: dataToSave.categoria,
       orcamento: dataToSave.orcamento,
       obs: dataToSave.observacao
