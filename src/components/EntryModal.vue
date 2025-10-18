@@ -268,7 +268,8 @@ const handleSubmit = async () => {
       const responseData = await response.json()
       console.log('✅ Resposta da API:', responseData)
       console.log('✅ Lançamento enviado com sucesso')
-      emit('save', dataToSave)
+      // Close modal without emitting save since data was already sent to backend
+      emit('close')
     } else {
       console.error(`❌ Erro ao enviar lançamento: ${response.status} ${response.statusText}`)
       const errorText = await response.text()
