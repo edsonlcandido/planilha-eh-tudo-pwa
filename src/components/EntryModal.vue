@@ -218,12 +218,12 @@ const convertToExcelEpoch = (dateString: string): number => {
   const month = parseInt(parts[1], 10)
   const year = parseInt(parts[2], 10)
   
-  // Create date object (months are 0-indexed in JS)
-  const date = new Date(year, month - 1, day)
+  // Use UTC to avoid timezone issues
+  // Create date at noon UTC to avoid any edge cases with timezone conversions
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
   
-  // Excel epoch starts at January 1, 1900
-  // But Excel incorrectly treats 1900 as a leap year, so we need to add 1 day for dates after Feb 28, 1900
-  const excelEpoch = new Date(1899, 11, 30) // December 30, 1899 (Excel's actual epoch)
+  // Excel epoch starts at December 30, 1899 at noon UTC
+  const excelEpoch = new Date(Date.UTC(1899, 11, 30, 12, 0, 0))
   
   // Calculate difference in milliseconds and convert to days
   const diffTime = date.getTime() - excelEpoch.getTime()
