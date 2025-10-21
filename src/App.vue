@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import pb from './pocketbase' // Import PocketBase instance
+import { computed } from 'vue'
 
 const router = useRouter()
+const route = useRoute()
 
 const logout = () => {
   pb.authStore.clear()
@@ -19,6 +21,17 @@ router.isReady().then(() => {
     }
   }
 })
+
+// Dashboard URL from environment variable
+const dashboardUrl = import.meta.env.VITE_DASHBOARD_URL || 'https://dev.planilha.ehtudo.app/dashboard/'
+
+// Check if user is logged in to show menu
+// Using route.path to make it reactive to navigation changes
+const isLoggedIn = computed(() => {
+  // Force reactivity by referencing route.path
+  const currentPath = route.path
+  return (pb.authStore.isValid || sessionStorage.getItem('testLogin') === 'true') && currentPath !== '/login'
+})
 </script>
 
 <template>
@@ -27,6 +40,14 @@ router.isReady().then(() => {
       
       <h1 class="app-title">Planilha Eh Tudo</h1>
 
+    </nav>
+
+    <!-- Menu with Dashboard button -->
+    <nav v-if="isLoggedIn" class="app-menu">
+      <a :href="dashboardUrl" class="menu-button dashboard-button" target="_blank" rel="noopener noreferrer">
+        <span class="button-icon">📊</span>
+        <span class="button-text">Dashboard</span>
+      </a>
     </nav>
 
     <main class="app-content">
@@ -57,6 +78,50 @@ router.isReady().then(() => {
   font-size: 1.25rem; /* Mobile first */
   font-weight: bold;
   color: var(--color-text-dark);
+}
+
+.app-menu {
+  background-color: var(--color-card-background);
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.menu-button {
+  align-items: center;
+  border-radius: 8px;
+  color: rgb(255, 255, 255);
+  display: flex;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 14.4px;
+  height: 40px;
+  justify-content: flex-start;
+  margin: 0 8px 0 8px;
+  padding: 0 12px;
+  width: 143px;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+  text-decoration: none;
+  gap: 8px;
+}
+
+.dashboard-button {
+  background-color: rgb(52, 152, 219);
+}
+
+.dashboard-button:hover {
+  background-color: rgb(41, 128, 185);
+}
+
+.button-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.button-text {
+  font-weight: 500;
 }
 
 .nav-links {
