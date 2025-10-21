@@ -37,11 +37,6 @@ jobs:
       
     - name: Build PWA
       run: npm run build
-      
-    - name: Create PWA directory
-      run: |
-        mkdir -p pwa
-        cp -r dist/* pwa/
         
     - name: Create PWA ZIP
       run: |
