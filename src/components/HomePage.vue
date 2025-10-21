@@ -286,47 +286,44 @@ const handleModalClose = () => {
 // Handle save from modal
 const handleSave = async (updatedCartao: CartaoData) => {
   try {
-    // Update the cartao in the array
+    // Remove the cartao from the array
     if (selectedCartaoIndex.value >= 0) {
-      sharedCartoes.value[selectedCartaoIndex.value] = updatedCartao
-    }
-
-    // Send to endpoint - using the same webhook URL pattern
-    const saveEndpoint = import.meta.env.VITE_SAVE_ENTRY_URL || 
-      'https://ehtudo-n8n.pfdgdz.easypanel.host/webhook/v1/planilha-eh-tudo-save-entry'
-    
-    const response = await fetch(saveEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...updatedCartao,
-        user_id: currentUserId.value
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error('Falha ao salvar o lançamento')
+      sharedCartoes.value.splice(selectedCartaoIndex.value, 1)
     }
 
     // Close modal
     handleModalClose()
     
     // Show success message
-    uploadResponse.value = 'Lançamento atualizado com sucesso!'
+    uploadResponse.value = 'Lançamento enviado com sucesso!'
     
     // Clear success message after 3 seconds
     setTimeout(() => {
-      if (uploadResponse.value === 'Lançamento atualizado com sucesso!') {
+      if (uploadResponse.value === 'Lançamento enviado com sucesso!') {
         uploadResponse.value = null
       }
     }, 3000)
+
+    // If no more cards, reset to initial state
+    if (sharedCartoes.value.length === 0) {
+      resetToInitialState()
+    }
 
   } catch (error: any) {
     console.error('Erro ao salvar:', error)
     alert('Erro ao salvar o lançamento: ' + (error?.message || 'Erro desconhecido'))
   }
+}
+
+// Reset page to initial state
+const resetToInitialState = () => {
+  sharedTitle.value = ''
+  sharedText.value = ''
+  sharedUrl.value = ''
+  sharedFiles.value = []
+  uploadResponse.value = null
+  uploadError.value = null
+  uploading.value = false
 }
 
 const handleLaunchParams = async (launchParams: { files?: FileSystemFileHandle[], text?: string, url?: string, title?: string }) => {

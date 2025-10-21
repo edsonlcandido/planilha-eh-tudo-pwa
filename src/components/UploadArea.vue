@@ -298,28 +298,9 @@ const handleModalClose = () => {
 // Handle save from modal
 const handleSave = async (updatedCartao: CartaoData) => {
   try {
-    // Update the cartao in the array
+    // Remove the cartao from the array
     if (selectedCartaoIndex.value >= 0) {
-      cartoes.value[selectedCartaoIndex.value] = updatedCartao;
-    }
-
-    // Send to endpoint - using the same webhook URL pattern
-    const saveEndpoint = import.meta.env.VITE_SAVE_ENTRY_URL || 
-      'https://ehtudo-n8n.pfdgdz.easypanel.host/webhook/v1/planilha-eh-tudo-save-entry';
-    
-    const response = await fetch(saveEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...updatedCartao,
-        user_id: currentUserId.value
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Falha ao salvar o lançamento');
+      cartoes.value.splice(selectedCartaoIndex.value, 1);
     }
 
     // Close modal
@@ -327,7 +308,7 @@ const handleSave = async (updatedCartao: CartaoData) => {
     
     // Show success message
     uploadStatus.value = 'success';
-    uploadMessage.value = 'Lançamento atualizado com sucesso!';
+    uploadMessage.value = 'Lançamento enviado com sucesso!';
     
     // Clear success message after 3 seconds
     setTimeout(() => {
@@ -336,6 +317,11 @@ const handleSave = async (updatedCartao: CartaoData) => {
         uploadStatus.value = 'idle';
       }
     }, 3000);
+
+    // If no more cards, reset to initial state
+    if (cartoes.value.length === 0) {
+      clearFiles();
+    }
 
   } catch (error: any) {
     console.error('Erro ao salvar:', error);
