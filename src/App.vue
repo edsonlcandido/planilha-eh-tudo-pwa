@@ -44,7 +44,7 @@ const isLoggedIn = computed(() => {
 
     <!-- Menu with Dashboard button -->
     <nav v-if="isLoggedIn" class="app-menu">
-      <a :href="dashboardUrl" class="menu-button dashboard-button" target="_blank" rel="noopener noreferrer">
+      <a :href="dashboardUrl" class="menu-button dashboard-button" rel="noopener noreferrer">
         <span class="button-icon">📊</span>
         <span class="button-text">Dashboard</span>
       </a>
