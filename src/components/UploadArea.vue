@@ -231,6 +231,42 @@ const mockBackendResponse = (): CartaoData[] => {
   ];
 };
 
+// Busca entries da API
+const fetchEntries = async (): Promise<SheetEntry[]> => {
+  const entriesUrl = import.meta.env.VITE_GET_ENTRIES_URL
+  if (!entriesUrl) {
+    console.warn('VITE_GET_ENTRIES_URL não configurada')
+    return []
+  }
+
+  try {
+    const token = pb.authStore.token
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json'
+    }
+    
+    if (token) {
+      headers['Authorization'] = `${token}`
+    }
+    
+    const response = await fetch(entriesUrl, {
+      method: 'GET',
+      headers
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      if (data.success && data.entries) {
+        return data.entries as SheetEntry[]
+      }
+    }
+  } catch (error) {
+    console.warn('⚠️ Erro ao buscar entries:', error)
+  }
+  
+  return []
+}
+
 // Processa a resposta do webhook e extrai os cartões
 const processWebhookResponse = (responseData: any): CartaoData[] => {
   // A resposta pode ser diretamente um array ou um objeto com a propriedade cartoes
@@ -318,7 +354,10 @@ const uploadFile = async () => {
       throw new Error('PocketBase não retornou o arquivo.');
     }
 
-    // 2. Envia para o webhook e processa a resposta diretamente
+    // 2. Busca entries existentes
+    const entries = await fetchEntries()
+    
+    // 3. Envia para o webhook e processa a resposta diretamente
     const uploadUri = pb.files.getUrl(record, fileName);
     uploadStatus.value = 'analyzing';
     uploadMessage.value = 'Analisando documento...';
@@ -338,17 +377,17 @@ const uploadFile = async () => {
       throw new Error('Falha ao processar a imagem no servidor.');
     }
 
-    // 3. Processa a resposta do webhook diretamente
+    // 4. Processa a resposta do webhook diretamente
     const webhookData = await webhookResponse.json();
     const cartaosList = processWebhookResponse(webhookData);
     
-    // 4. Armazena os cartões no estado
+    // 5. Armazena os cartões no estado
     cartoes.value = cartaosList;
     
-    // 5. Apaga a imagem do PocketBase
+    // 6. Apaga a imagem do PocketBase
     await deleteUploadedImage(record.id);
     
-    // 6. Remove o arquivo local da interface
+    // 7. Remove o arquivo local da interface
     clearObjectURLs();
     files.value = [];
     
