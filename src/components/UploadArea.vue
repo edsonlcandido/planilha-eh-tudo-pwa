@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import pb from '../pocketbase';
 import CartaoItem from './CartaoItem.vue';
 import EntryModal from './EntryModal.vue';
-import type { CartaoData, ProcessImageResponse } from '../types';
+import type { CartaoData, ProcessImageResponse, GetEntriesResponse, GetCategoriesResponse, SheetEntry } from '../types';
 
 const files = ref<File[]>([]);
 const uploadStatus = ref<'idle' | 'uploading' | 'analyzing' | 'success' | 'error'>('idle');
@@ -15,6 +15,100 @@ const recordId = ref<string | null>(null); // Para armazenar o ID do registro do
 const showModal = ref(false);
 const selectedCartao = ref<CartaoData | null>(null);
 const selectedCartaoIndex = ref<number>(-1);
+
+// Estados para dados das APIs
+const apiEntries = ref<SheetEntry[]>([]);
+const apiCategorias = ref<string[]>([]);
+const isLoadingEntries = ref(false);
+const isLoadingCategorias = ref(false);
+
+// Buscar entries da API
+const fetchEntries = async () => {
+  const entriesUrl = import.meta.env.VITE_GET_ENTRIES_URL
+  if (!entriesUrl) {
+    console.warn('VITE_GET_ENTRIES_URL não configurada')
+    return
+  }
+
+  isLoadingEntries.value = true
+  try {
+    const token = pb.authStore.token
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json'
+    }
+    
+    if (token) {
+      headers['Authorization'] = `${token}`
+    }
+    
+    const response = await fetch(entriesUrl, {
+      method: 'GET',
+      headers
+    })
+    
+    if (response.ok) {
+      const data: GetEntriesResponse = await response.json()
+      if (data.success && data.entries) {
+        apiEntries.value = data.entries
+        console.log(`✅ ${apiEntries.value.length} entries carregados`)
+      }
+    } else {
+      console.warn(`⚠️ Erro ao buscar entries: ${response.status} ${response.statusText}`)
+    }
+  } catch (error) {
+    console.warn('⚠️ Erro ao buscar entries:', error)
+  } finally {
+    isLoadingEntries.value = false
+  }
+}
+
+// Buscar categorias da API
+const fetchCategorias = async () => {
+  const categoriesUrl = import.meta.env.VITE_GET_CATEGORIES_URL
+  if (!categoriesUrl) {
+    console.warn('VITE_GET_CATEGORIES_URL não configurada')
+    return
+  }
+
+  isLoadingCategorias.value = true
+  try {
+    const token = pb.authStore.token
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json'
+    }
+    
+    if (token) {
+      headers['Authorization'] = `${token}`
+    }
+    
+    const response = await fetch(categoriesUrl, {
+      method: 'GET',
+      headers
+    })
+    
+    if (response.ok) {
+      const data: GetCategoriesResponse = await response.json()
+      if (data.success && data.categories) {
+        apiCategorias.value = data.categories
+        console.log(`✅ ${apiCategorias.value.length} categorias carregadas`)
+      }
+    } else {
+      console.warn(`⚠️ Erro ao buscar categorias: ${response.status} ${response.statusText}`)
+    }
+  } catch (error) {
+    console.warn('⚠️ Erro ao buscar categorias:', error)
+  } finally {
+    isLoadingCategorias.value = false
+  }
+}
+
+// Carregar dados ao montar o componente
+onMounted(() => {
+  fetchEntries()
+  fetchCategorias()
+})
 
 // Autocomplete data - extracted from existing cartoes
 const contas = computed(() => {
@@ -224,7 +318,10 @@ const uploadFile = async () => {
       throw new Error('PocketBase não retornou o arquivo.');
     }
 
-    // 2. Envia para o webhook e processa a resposta diretamente
+    // 2. Busca entries existentes
+    const entries = await fetchEntries()
+    
+    // 3. Envia para o webhook e processa a resposta diretamente
     const uploadUri = pb.files.getUrl(record, fileName);
     uploadStatus.value = 'analyzing';
     uploadMessage.value = 'Analisando documento...';
@@ -234,7 +331,9 @@ const uploadFile = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         'upload-uri': uploadUri,
-        'record-id': record.id
+        'record-id': record.id,
+        'entries': apiEntries.value,
+        'categories': apiCategorias.value
       }),
     });
 
@@ -242,17 +341,17 @@ const uploadFile = async () => {
       throw new Error('Falha ao processar a imagem no servidor.');
     }
 
-    // 3. Processa a resposta do webhook diretamente
+    // 4. Processa a resposta do webhook diretamente
     const webhookData = await webhookResponse.json();
     const cartaosList = processWebhookResponse(webhookData);
     
-    // 4. Armazena os cartões no estado
+    // 5. Armazena os cartões no estado
     cartoes.value = cartaosList;
     
-    // 5. Apaga a imagem do PocketBase
+    // 6. Apaga a imagem do PocketBase
     await deleteUploadedImage(record.id);
     
-    // 6. Remove o arquivo local da interface
+    // 7. Remove o arquivo local da interface
     clearObjectURLs();
     files.value = [];
     
