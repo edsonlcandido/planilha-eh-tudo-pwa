@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 import pb from '../pocketbase';
 import CartaoItem from './CartaoItem.vue';
 import EntryModal from './EntryModal.vue';
-import type { CartaoData, ProcessImageResponse } from '../types';
+import type { CartaoData, ProcessImageResponse, SheetEntry } from '../types';
 
 const files = ref<File[]>([]);
 const uploadStatus = ref<'idle' | 'uploading' | 'analyzing' | 'success' | 'error'>('idle');
@@ -138,7 +138,7 @@ const mockBackendResponse = (): CartaoData[] => {
 };
 
 // Busca entries da API
-const fetchEntries = async (): Promise<any[]> => {
+const fetchEntries = async (): Promise<SheetEntry[]> => {
   const entriesUrl = import.meta.env.VITE_GET_ENTRIES_URL
   if (!entriesUrl) {
     console.warn('VITE_GET_ENTRIES_URL não configurada')
@@ -163,7 +163,7 @@ const fetchEntries = async (): Promise<any[]> => {
     if (response.ok) {
       const data = await response.json()
       if (data.success && data.entries) {
-        return data.entries
+        return data.entries as SheetEntry[]
       }
     }
   } catch (error) {

@@ -6,7 +6,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import UploadArea from './UploadArea.vue'
 import CartaoItem from './CartaoItem.vue'
 import EntryModal from './EntryModal.vue'
-import type { CartaoData } from '../types'
+import type { CartaoData, SheetEntry } from '../types'
 
 const router = useRouter()
 
@@ -130,7 +130,7 @@ const installPWA = async () => {
 // --- Share Target Handling Logic ---
 
 // Busca entries da API
-const fetchEntries = async (): Promise<any[]> => {
+const fetchEntries = async (): Promise<SheetEntry[]> => {
   const entriesUrl = import.meta.env.VITE_GET_ENTRIES_URL
   if (!entriesUrl) {
     console.warn('VITE_GET_ENTRIES_URL não configurada')
@@ -155,7 +155,7 @@ const fetchEntries = async (): Promise<any[]> => {
     if (response.ok) {
       const data = await response.json()
       if (data.success && data.entries) {
-        return data.entries
+        return data.entries as SheetEntry[]
       }
     }
   } catch (error) {
