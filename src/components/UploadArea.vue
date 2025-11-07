@@ -231,42 +231,6 @@ const mockBackendResponse = (): CartaoData[] => {
   ];
 };
 
-// Busca entries da API
-const fetchEntries = async (): Promise<SheetEntry[]> => {
-  const entriesUrl = import.meta.env.VITE_GET_ENTRIES_URL
-  if (!entriesUrl) {
-    console.warn('VITE_GET_ENTRIES_URL não configurada')
-    return []
-  }
-
-  try {
-    const token = pb.authStore.token
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json'
-    }
-    
-    if (token) {
-      headers['Authorization'] = `${token}`
-    }
-    
-    const response = await fetch(entriesUrl, {
-      method: 'GET',
-      headers
-    })
-    
-    if (response.ok) {
-      const data = await response.json()
-      if (data.success && data.entries) {
-        return data.entries as SheetEntry[]
-      }
-    }
-  } catch (error) {
-    console.warn('⚠️ Erro ao buscar entries:', error)
-  }
-  
-  return []
-}
-
 // Processa a resposta do webhook e extrai os cartões
 const processWebhookResponse = (responseData: any): CartaoData[] => {
   // A resposta pode ser diretamente um array ou um objeto com a propriedade cartoes
