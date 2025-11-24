@@ -430,6 +430,24 @@ const handleSave = async (updatedCartao: CartaoData) => {
 
 </script>
 <template>
+
+ <!-- Cartões processados -->
+    <div v-if="cartoes.length > 0" class="cartoes-section">
+      <div class="cartoes-header">
+        <h3>Cartões Processados</h3>
+        <button class="new-analysis-button" @click="clearFiles">Nova Análise</button>
+      </div>
+      <div class="cartoes-list">
+        <CartaoItem 
+          v-for="(cartao, index) in cartoes" 
+          :key="index" 
+          :cartao="cartao"
+          @click="handleCartaoClick"
+        />
+      </div>
+    </div>
+
+
     <div class="upload-area">
         <h2 class="upload-title">Análise de Documento</h2>
         <p class="upload-description">Envie extratos e comprovantes para análise automática</p>
@@ -487,22 +505,7 @@ const handleSave = async (updatedCartao: CartaoData) => {
       {{ uploadMessage }}
     </div>
 
-    <!-- Cartões processados -->
-    <div v-if="cartoes.length > 0" class="cartoes-section">
-      <div class="cartoes-header">
-        <h3>Cartões Processados</h3>
-        <button class="new-analysis-button" @click="clearFiles">Nova Análise</button>
-      </div>
-      <div class="cartoes-list">
-        <CartaoItem 
-          v-for="(cartao, index) in cartoes" 
-          :key="index" 
-          :cartao="cartao"
-          @click="handleCartaoClick"
-        />
-      </div>
-    </div>
-
+   
     <!-- Modal de edição -->
     <EntryModal
       :show="showModal"

@@ -67,7 +67,7 @@ const logout = () => {
 // Verificação da validade do token
 const verificarToken = async () => {
   isLoading.value = true
-  
+
   try {
     // Primeiro verifica se há um login de teste no sessionStorage
     const testLogin = sessionStorage.getItem('testLogin')
@@ -76,17 +76,17 @@ const verificarToken = async () => {
       isLoading.value = false
       return
     }
-    
+
     // Verifica se há um token na auth store
     if (!pb.authStore.token) {
       // Se não há token, redireciona para login
       throw new Error('Token não encontrado')
     }
-    
+
     // Verifica se o token é válido fazendo uma requisição ao PocketBase
     // Podemos usar a função de obter o usuário atual, que falha se o token for inválido
     await pb.collection('users').authRefresh()
-    
+
     // Se chegou aqui, o token é válido
     console.log('Token válido, usuário autenticado')
     isLoading.value = false
@@ -142,16 +142,16 @@ const fetchEntries = async (): Promise<SheetEntry[]> => {
     const headers: HeadersInit = {
       'Content-Type': 'application/json'
     }
-    
+
     if (token) {
       headers['Authorization'] = `${token}`
     }
-    
+
     const response = await fetch(entriesUrl, {
       method: 'GET',
       headers
     })
-    
+
     if (response.ok) {
       const data = await response.json()
       if (data.success && data.entries) {
@@ -161,7 +161,7 @@ const fetchEntries = async (): Promise<SheetEntry[]> => {
   } catch (error) {
     console.warn('⚠️ Erro ao buscar entries:', error)
   }
-  
+
   return []
 }
 
@@ -229,17 +229,17 @@ const uploadSharedFile = async (file: File) => {
   try {
     // Para desenvolvimento/teste: usar dados mockados
     const isDevelopment = import.meta.env.DEV || sessionStorage.getItem('testLogin') === 'true'
-    
+
     if (isDevelopment) {
       // Simula o processo de upload e análise
       uploadResponse.value = 'Analisando documento...'
-      
+
       // Simula tempo de processamento
       await new Promise(resolve => setTimeout(resolve, 2000))
-      
+
       // Obtém dados mockados
       const cartaosList = mockBackendResponse()
-      
+
       // Armazena os cartões no estado
       sharedCartoes.value = cartaosList
       uploadResponse.value = `${cartaosList.length} cartão(ões) criado(s) com sucesso!`
@@ -265,15 +265,15 @@ const uploadSharedFile = async (file: File) => {
 
     // 2. Busca entries existentes
     const entries = await fetchEntries()
-    
+
     // 3. Envia para o webhook e processa a resposta diretamente
     const uploadUri = pb.files.getUrl(record, fileName)
     uploadResponse.value = 'Analisando documento...'
-    
+
     const webhookResponse = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         'upload-uri': uploadUri,
         'record-id': record.id,
         'entries': entries
@@ -287,15 +287,15 @@ const uploadSharedFile = async (file: File) => {
     // 4. Processa a resposta do webhook diretamente
     const webhookData = await webhookResponse.json()
     const cartaosList = processWebhookResponse(webhookData)
-    
+
     // 5. Armazena os cartões no estado
     sharedCartoes.value = cartaosList
-    
+
     // 6. Apaga a imagem do PocketBase
     await deleteUploadedImage(record.id)
-    
+
     uploadResponse.value = `${cartaosList.length} cartão(ões) criado(s) com sucesso!`
-    
+
   } catch (error: any) {
     uploadError.value = `Falha ao processar ${file.name}: ${error.message}`
     console.error('Erro no upload:', error)
@@ -306,9 +306,9 @@ const uploadSharedFile = async (file: File) => {
 
 // Handle cartao click to open modal for shared cards
 const handleSharedCartaoClick = (cartao: CartaoData) => {
-  const index = sharedCartoes.value.findIndex(c => 
-    c.data === cartao.data && 
-    c.descricao === cartao.descricao && 
+  const index = sharedCartoes.value.findIndex(c =>
+    c.data === cartao.data &&
+    c.descricao === cartao.descricao &&
     c.valor === cartao.valor
   )
   selectedCartaoIndex.value = index
@@ -333,10 +333,10 @@ const handleSave = async (updatedCartao: CartaoData) => {
 
     // Close modal
     handleModalClose()
-    
+
     // Show success message
     uploadResponse.value = 'Lançamento enviado com sucesso!'
-    
+
     // Clear success message after 3 seconds
     setTimeout(() => {
       if (uploadResponse.value === 'Lançamento enviado com sucesso!') {
@@ -385,7 +385,7 @@ const handleLaunchParams = async (launchParams: { files?: FileSystemFileHandle[]
 onMounted(async () => {
   // Verificar token antes de continuar
   await verificarToken()
-  
+
   // Handle PWA install prompt
   window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
 
@@ -398,12 +398,12 @@ onMounted(async () => {
       const response = await cache.match('/pwa/shared-data')
       if (response) {
         const shareData = await response.json()
-        
+
         // Set the shared data
         sharedTitle.value = shareData.title || ''
         sharedText.value = shareData.text || ''
         sharedUrl.value = shareData.url || ''
-        
+
         // If there's a file, retrieve it and process
         if (shareData.file) {
           const fileResponse = await cache.match(`/pwa/shared-file-${shareData.timestamp}`)
@@ -412,12 +412,12 @@ onMounted(async () => {
             const fileName = fileResponse.headers.get('X-File-Name') || 'shared-file'
             const file = new File([blob], fileName, { type: blob.type })
             sharedFiles.value = [file]
-            
+
             // Auto-upload the shared file
             await uploadSharedFile(file)
           }
         }
-        
+
         // Clean up the cache
         await cache.delete('/pwa/shared-data')
         if (shareData.timestamp) {
@@ -427,7 +427,7 @@ onMounted(async () => {
     } catch (error) {
       console.error('Error retrieving shared data:', error)
     }
-    
+
     // Clean up the URL
     window.history.replaceState({}, '', '/pwa/')
   }
@@ -454,6 +454,8 @@ onUnmounted(() => {
 })
 
 const isSharedContentPresent = () => {
+  // DEBUG: Force show shared content card
+  // return true;
   return sharedTitle.value || sharedText.value || sharedUrl.value || sharedFiles.value.length > 0;
 }
 
@@ -474,10 +476,11 @@ const appVersion = import.meta.env.APP_VERSION || ''
       <div class="loading-spinner"></div>
       <p>Verificando autenticação...</p>
     </div>
-    
+
     <template v-else>
       <h1 class="page-title">Bem vindo ao nosso app!</h1>
-      <p class="page-description">Essa é nossa extensão para celular para poder enviar comprovantes e processar usando agentes de IA.</p>
+      <p class="page-description">Essa é nossa extensão para celular para poder enviar comprovantes e processar usando
+        agentes de IA.</p>
 
       <!-- PWA Install Button -->
       <div v-if="showInstallButton" class="install-section">
@@ -487,39 +490,13 @@ const appVersion = import.meta.env.APP_VERSION || ''
         <p class="install-description">Instale este aplicativo em seu dispositivo para uma melhor experiência!</p>
       </div>
 
-      <UploadArea/>
-
-      <!-- PWA Information Section -->
-      <div v-if="showInstallButton"  class="pwa-info-section">
-        <h3 class="pwa-info-title">💡 PWA Instalação</h3>
-        <div class="pwa-info-content">
-          <p>Este aplicativo é um Progressive Web App (PWA) e pode ser instalado em seu dispositivo!</p>
-          <details class="install-instructions">
-            <summary>Como instalar manualmente:</summary>
-            <div class="instructions-content">
-              <h4>🔹 Chrome/Edge (Desktop):</h4>
-              <p>Procure o ícone de instalação (📱) na barra de endereços ou clique no menu de três pontos → "Instalar app"</p>
-
-              <h4>🔹 Chrome/Edge (Mobile):</h4>
-              <p>Toque no menu de três pontos → "Adicionar à tela inicial" ou "Instalar app"</p>
-
-              <h4>🔹 Safari (iOS):</h4>
-              <p>Toque no botão de compartilhamento (📤) → "Adicionar à Tela de Início"</p>
-
-              <h4>🔹 Firefox:</h4>
-              <p>Procure o prompt de instalação ou use "Adicionar à tela inicial" no menu</p>
-            </div>
-          </details>
-        </div>
-      </div>
-
       <div v-if="isSharedContentPresent()" class="shared-content-card">
         <h3 class="shared-content-title">Conteúdo Compartilhado Recebido!</h3>
 
         <p v-if="sharedTitle"><strong>Título:</strong> {{ sharedTitle }}</p>
         <p v-if="sharedText"><strong>Texto:</strong> {{ sharedText }}</p>
         <p v-if="sharedUrl"><strong>URL:</strong> <a :href="sharedUrl" target="_blank" class="shared-link">{{ sharedUrl
-            }}</a></p>
+        }}</a></p>
 
         <div v-if="sharedFiles.length > 0" class="shared-files-section">
           <h4 class="shared-files-heading">Arquivos Compartilhados:</h4>
@@ -543,17 +520,13 @@ const appVersion = import.meta.env.APP_VERSION || ''
           <div v-else-if="uploadError" class="upload-status-message upload-error">
             Erro no upload: <br /> {{ uploadError }}
           </div>
-          
+
           <!-- Exibe os cartões processados -->
           <div v-if="sharedCartoes.length > 0" class="shared-cartoes-section">
             <h4 class="shared-cartoes-heading">Cartões Processados:</h4>
             <div class="cartoes-list">
-              <CartaoItem 
-                v-for="(cartao, index) in sharedCartoes" 
-                :key="index" 
-                :cartao="cartao"
-                @click="handleSharedCartaoClick"
-              />
+              <CartaoItem v-for="(cartao, index) in sharedCartoes" :key="index" :cartao="cartao"
+                @click="handleSharedCartaoClick" />
             </div>
           </div>
         </div>
@@ -561,15 +534,39 @@ const appVersion = import.meta.env.APP_VERSION || ''
         <p class="shared-feedback">Este conteúdo foi compartilhado com seu PWA!</p>
       </div>
 
+
+      <UploadArea />
+
+      <!-- PWA Information Section -->
+      <div v-if="showInstallButton" class="pwa-info-section">
+        <h3 class="pwa-info-title">💡 PWA Instalação</h3>
+        <div class="pwa-info-content">
+          <p>Este aplicativo é um Progressive Web App (PWA) e pode ser instalado em seu dispositivo!</p>
+          <details class="install-instructions">
+            <summary>Como instalar manualmente:</summary>
+            <div class="instructions-content">
+              <h4>🔹 Chrome/Edge (Desktop):</h4>
+              <p>Procure o ícone de instalação (📱) na barra de endereços ou clique no menu de três pontos → "Instalar
+                app"</p>
+
+              <h4>🔹 Chrome/Edge (Mobile):</h4>
+              <p>Toque no menu de três pontos → "Adicionar à tela inicial" ou "Instalar app"</p>
+
+              <h4>🔹 Safari (iOS):</h4>
+              <p>Toque no botão de compartilhamento (📤) → "Adicionar à Tela de Início"</p>
+
+              <h4>🔹 Firefox:</h4>
+              <p>Procure o prompt de instalação ou use "Adicionar à tela inicial" no menu</p>
+            </div>
+          </details>
+        </div>
+      </div>
+
+
+
       <!-- Modal de edição para cartões compartilhados -->
-      <EntryModal
-        :show="showModal"
-        :cartao="selectedCartao"
-        :contas="contas"
-        :categorias="categorias"
-        @close="handleModalClose"
-        @save="handleSave"
-      />
+      <EntryModal :show="showModal" :cartao="selectedCartao" :contas="contas" :categorias="categorias"
+        @close="handleModalClose" @save="handleSave" />
 
       <hr class="separator" />
       <div class="app-version" aria-hidden="true">
@@ -614,8 +611,13 @@ const appVersion = import.meta.env.APP_VERSION || ''
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .page-title {
