@@ -431,6 +431,14 @@ const handleSave = async (updatedCartao: CartaoData) => {
 </script>
 <template>
 
+
+
+
+    <div class="upload-area">
+        <h2 class="upload-title">Análise de Documento</h2>
+        <p class="upload-description">Envie extratos e comprovantes para análise automática</p>
+    </div>
+
  <!-- Cartões processados -->
     <div v-if="cartoes.length > 0" class="cartoes-section">
       <div class="cartoes-header">
@@ -445,12 +453,6 @@ const handleSave = async (updatedCartao: CartaoData) => {
           @click="handleCartaoClick"
         />
       </div>
-    </div>
-
-
-    <div class="upload-area">
-        <h2 class="upload-title">Análise de Documento</h2>
-        <p class="upload-description">Envie extratos e comprovantes para análise automática</p>
     </div>
 
         <!-- Área de seleção de arquivos simplificada -->
