@@ -7,7 +7,7 @@ import UploadArea from './UploadArea.vue'
 import CartaoItem from './CartaoItem.vue'
 import EntryModal from './EntryModal.vue'
 import ChatFAB from './ChatFAB.vue'
-import type { CartaoData, SheetEntry } from '../types'
+import type { CartaoData, SheetEntry, GetCategoriesResponse } from '../types'
 
 const router = useRouter()
 
@@ -26,6 +26,7 @@ const uploading = ref(false)
 const isLoading = ref(true)
 const sharedCartoes = ref<CartaoData[]>([])
 const entries = ref<SheetEntry[]>([])
+const apiCategorias = ref<string[]>([])
 
 // Modal state for shared cards
 const showModal = ref(false)
@@ -167,6 +168,42 @@ const fetchEntries = async (): Promise<SheetEntry[]> => {
   return []
 }
 
+// Busca categorias da API
+const fetchCategorias = async (): Promise<string[]> => {
+  const categoriesUrl = import.meta.env.VITE_GET_CATEGORIES_URL
+  if (!categoriesUrl) {
+    console.warn('VITE_GET_CATEGORIES_URL não configurada')
+    return []
+  }
+
+  try {
+    const token = pb.authStore.token
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json'
+    }
+
+    if (token) {
+      headers['Authorization'] = `${token}`
+    }
+
+    const response = await fetch(categoriesUrl, {
+      method: 'GET',
+      headers
+    })
+
+    if (response.ok) {
+      const data: GetCategoriesResponse = await response.json()
+      if (data.success && data.categories) {
+        return data.categories
+      }
+    }
+  } catch (error) {
+    console.warn('⚠️ Erro ao buscar categorias:', error)
+  }
+
+  return []
+}
+
 // Processa a resposta do webhook e extrai os cartões
 const processWebhookResponse = (responseData: any): CartaoData[] => {
   // A resposta pode ser diretamente um array ou um objeto com a propriedade cartoes
@@ -229,8 +266,8 @@ const uploadSharedFile = async (file: File) => {
   }
 
   try {
-    // Para desenvolvimento/teste: usar dados mockados
-    const isDevelopment = import.meta.env.DEV || sessionStorage.getItem('testLogin') === 'true'
+    // Para desenvolvimento: usar dados mockados (apenas em DEV, não em produção com testLogin)
+    const isDevelopment = import.meta.env.DEV
 
     if (isDevelopment) {
       // Simula o processo de upload e análise
@@ -265,8 +302,9 @@ const uploadSharedFile = async (file: File) => {
       throw new Error('PocketBase não retornou o arquivo.')
     }
 
-    // 2. Busca entries existentes
-    const entries = await fetchEntries()
+    // 2. Busca entries e categorias existentes
+    const fetchedEntries = await fetchEntries()
+    const fetchedCategories = await fetchCategorias()
 
     // 3. Envia para o webhook e processa a resposta diretamente
     const uploadUri = pb.files.getUrl(record, fileName)
@@ -278,7 +316,8 @@ const uploadSharedFile = async (file: File) => {
       body: JSON.stringify({
         'upload-uri': uploadUri,
         'record-id': record.id,
-        'entries': entries
+        'entries': fetchedEntries,
+        'categories': fetchedCategories
       }),
     })
 
