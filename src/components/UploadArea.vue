@@ -277,7 +277,7 @@ const uploadFile = async () => {
   uploadMessage.value = 'Enviando arquivo para processamento...';
 
   // Para desenvolvimento/teste: usar dados mockados
-  const isDevelopment = import.meta.env.DEV || sessionStorage.getItem('testLogin') === 'true';
+  const isDevelopment = import.meta.env.DEV;
   
   if (isDevelopment) {
     // Simula o processo de upload e análise

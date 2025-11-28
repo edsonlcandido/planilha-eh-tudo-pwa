@@ -36,6 +36,9 @@ self.addEventListener('fetch', (event) => {
 
         // Store the shared data in Cache API for the app to retrieve
         const cache = await caches.open('share-target-cache')
+        // Use a single timestamp for both shareData and cache key to ensure
+        // the file can be retrieved correctly by HomePage.vue
+        const timestamp = Date.now()
         const shareData = {
           file: file ? {
             name: file.name,
@@ -47,13 +50,13 @@ self.addEventListener('fetch', (event) => {
           title: title || '',
           text: text || '',
           url: url || '',
-          timestamp: Date.now()
+          timestamp: timestamp
         }
         
         // Store the file separately if it exists
         if (file) {
           await cache.put(
-            new Request(`/pwa/shared-file-${Date.now()}`),
+            new Request(`/pwa/shared-file-${timestamp}`),
             new Response(file, {
               headers: {
                 'Content-Type': file.type,

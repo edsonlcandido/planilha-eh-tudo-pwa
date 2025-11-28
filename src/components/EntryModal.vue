@@ -243,8 +243,8 @@ const handleSubmit = async () => {
   const finalValor = valorSign.value === '-' ? -Math.abs(formData.value.valor) : Math.abs(formData.value.valor)
   const dataToSave = { ...formData.value, valor: finalValor }
   
-  // Para desenvolvimento/teste: simular envio bem-sucedido
-  const isDevelopment = import.meta.env.DEV || sessionStorage.getItem('testLogin') === 'true'
+  // Para desenvolvimento: simular envio bem-sucedido (apenas em DEV, não em produção com testLogin)
+  const isDevelopment = import.meta.env.DEV
   
   if (isDevelopment) {
     console.log('✅ Modo desenvolvimento: simulando envio bem-sucedido')
