@@ -6,6 +6,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import UploadArea from './UploadArea.vue'
 import CartaoItem from './CartaoItem.vue'
 import EntryModal from './EntryModal.vue'
+import ChatFAB from './ChatFAB.vue'
 import type { CartaoData, SheetEntry } from '../types'
 
 const router = useRouter()
@@ -24,6 +25,7 @@ const uploadError = ref<string | null>(null)
 const uploading = ref(false)
 const isLoading = ref(true)
 const sharedCartoes = ref<CartaoData[]>([])
+const entries = ref<SheetEntry[]>([])
 
 // Modal state for shared cards
 const showModal = ref(false)
@@ -386,6 +388,9 @@ onMounted(async () => {
   // Verificar token antes de continuar
   await verificarToken()
 
+  // Load entries for ChatFAB
+  await loadEntries()
+
   // Handle PWA install prompt
   window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
 
@@ -466,6 +471,40 @@ const getFilePreviewUrl = (file: File) => {
   return null;
 };
 
+// Handle chat response from ChatFAB
+const handleChatResponse = (cartoes: CartaoData[]) => {
+  console.log('HomePage - Recebeu resposta do ChatFAB:', cartoes)
+  // Add the new cartoes to the shared cartoes list
+  sharedCartoes.value = [...sharedCartoes.value, ...cartoes]
+  console.log('HomePage - sharedCartoes atualizado:', sharedCartoes.value)
+  uploadResponse.value = `${cartoes.length} cartão(ões) criado(s) com sucesso!`
+  
+  // Clear success message after 3 seconds
+  setTimeout(() => {
+    if (uploadResponse.value === `${cartoes.length} cartão(ões) criado(s) com sucesso!`) {
+      uploadResponse.value = null
+    }
+  }, 3000)
+}
+
+// Handle chat error from ChatFAB
+const handleChatError = (message: string) => {
+  console.error('HomePage - Erro recebido do ChatFAB:', message)
+  uploadError.value = message
+}
+
+// Load entries on mount for ChatFAB
+const loadEntries = async () => {
+  try {
+    console.log('HomePage - Carregando entries...')
+    const fetchedEntries = await fetchEntries()
+    entries.value = fetchedEntries
+    console.log('HomePage - Entries carregadas:', entries.value.length, 'entries')
+  } catch (error) {
+    console.error('HomePage - Erro ao carregar entries:', error)
+  }
+}
+
 // App version injected at build time via Vite config
 const appVersion = import.meta.env.APP_VERSION || ''
 </script>
@@ -535,6 +574,26 @@ const appVersion = import.meta.env.APP_VERSION || ''
       </div>
 
 
+      <!-- Seção de Cartões Processados (Upload ou Chat) -->
+      <div v-if="(sharedCartoes.length > 0 || uploading || uploadResponse || uploadError) && !isSharedContentPresent()" class="cartoes-processados-section">
+        <h3 class="section-title">📋 Lançamentos Processados</h3>
+        
+        <div v-if="uploading" class="upload-status-message upload-progress">
+          Processando...
+        </div>
+        <div v-if="uploadResponse" class="upload-status-message upload-success">
+          {{ uploadResponse }}
+        </div>
+        <div v-if="uploadError" class="upload-status-message upload-error">
+          Erro: <br /> {{ uploadError }}
+        </div>
+
+        <div v-if="sharedCartoes.length > 0" class="cartoes-list">
+          <CartaoItem v-for="(cartao, index) in sharedCartoes" :key="index" :cartao="cartao"
+            @click="handleSharedCartaoClick" />
+        </div>
+      </div>
+
       <UploadArea />
 
       <!-- PWA Information Section -->
@@ -567,6 +626,14 @@ const appVersion = import.meta.env.APP_VERSION || ''
       <!-- Modal de edição para cartões compartilhados -->
       <EntryModal :show="showModal" :cartao="selectedCartao" :contas="contas" :categorias="categorias"
         @close="handleModalClose" @save="handleSave" />
+
+      <!-- ChatFAB para lançamento manual -->
+      <ChatFAB
+        :entries="entries"
+        :loading="isLoading || uploading"
+        @chat-response="handleChatResponse"
+        @error="handleChatError"
+      />
 
       <hr class="separator" />
       <div class="app-version" aria-hidden="true">
@@ -873,6 +940,25 @@ const appVersion = import.meta.env.APP_VERSION || ''
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.cartoes-processados-section {
+  background-color: var(--color-card-background);
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.cartoes-processados-section .section-title {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: var(--color-text-dark);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .separator {
