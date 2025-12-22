@@ -190,7 +190,7 @@ const handleSubmit = (event: Event, cartao: CartaoData) => {
 }
 
 .submit-button:hover {
-  background-color: var(--color-hover-blue);
+  background-color: var(--color-hover-green);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
