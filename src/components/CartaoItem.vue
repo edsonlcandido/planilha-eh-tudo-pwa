@@ -7,6 +7,7 @@ interface Props {
 
 interface Emits {
   (e: 'click', cartao: CartaoData): void
+  (e: 'submit', cartao: CartaoData): void
 }
 
 defineProps<Props>()
@@ -23,6 +24,12 @@ const formatarValor = (valor: number): string => {
 // Emite evento de clique
 const handleClick = (cartao: CartaoData) => {
   emit('click', cartao)
+}
+
+// Emite evento de submit sem abrir o modal
+const handleSubmit = (event: Event, cartao: CartaoData) => {
+  event.stopPropagation()
+  emit('submit', cartao)
 }
 </script>
 
@@ -54,6 +61,12 @@ const handleClick = (cartao: CartaoData) => {
         {{ cartao.observacao }}
       </div>
     </div>
+    
+    <div class="cartao-footer">
+      <button class="submit-button" @click="handleSubmit($event, cartao)">
+        ✓ Enviar
+      </button>
+    </div>
   </div>
 </template>
 
@@ -67,6 +80,8 @@ const handleClick = (cartao: CartaoData) => {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
 }
 
 .cartao-item:hover {
@@ -151,6 +166,37 @@ const handleClick = (cartao: CartaoData) => {
   font-size: 0.875rem;
   color: var(--color-text-light);
   line-height: 1.4;
+}
+
+.cartao-footer {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.submit-button {
+  background-color: var(--color-secondary);
+  color: white;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.submit-button:hover {
+  background-color: var(--color-hover-blue);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.submit-button:active {
+  transform: translateY(0);
 }
 
 /* Responsivo para telas menores */

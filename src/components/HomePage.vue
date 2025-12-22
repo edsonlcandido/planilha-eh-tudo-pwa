@@ -396,6 +396,41 @@ const handleSave = async (updatedCartao: CartaoData) => {
   }
 }
 
+// Handle submit directly from CartaoItem without opening modal
+const handleSubmitCartao = async (cartao: CartaoData) => {
+  try {
+    // Find and remove the cartao from the array
+    const index = sharedCartoes.value.findIndex(c =>
+      c.data === cartao.data &&
+      c.descricao === cartao.descricao &&
+      c.valor === cartao.valor
+    )
+    
+    if (index >= 0) {
+      sharedCartoes.value.splice(index, 1)
+    }
+
+    // Show success message
+    uploadResponse.value = 'Lançamento enviado com sucesso!'
+
+    // Clear success message after 3 seconds
+    setTimeout(() => {
+      if (uploadResponse.value === 'Lançamento enviado com sucesso!') {
+        uploadResponse.value = null
+      }
+    }, 3000)
+
+    // If no more cards, reset to initial state
+    if (sharedCartoes.value.length === 0) {
+      resetToInitialState()
+    }
+
+  } catch (error: any) {
+    console.error('Erro ao salvar:', error)
+    alert('Erro ao salvar o lançamento: ' + (error?.message || 'Erro desconhecido'))
+  }
+}
+
 // Reset page to initial state
 const resetToInitialState = () => {
   sharedTitle.value = ''
@@ -604,7 +639,7 @@ const appVersion = import.meta.env.APP_VERSION || ''
             <h4 class="shared-cartoes-heading">Cartões Processados:</h4>
             <div class="cartoes-list">
               <CartaoItem v-for="(cartao, index) in sharedCartoes" :key="index" :cartao="cartao"
-                @click="handleSharedCartaoClick" />
+                @click="handleSharedCartaoClick" @submit="handleSubmitCartao" />
             </div>
           </div>
         </div>
@@ -629,7 +664,7 @@ const appVersion = import.meta.env.APP_VERSION || ''
 
         <div v-if="sharedCartoes.length > 0" class="cartoes-list">
           <CartaoItem v-for="(cartao, index) in sharedCartoes" :key="index" :cartao="cartao"
-            @click="handleSharedCartaoClick" />
+            @click="handleSharedCartaoClick" @submit="handleSubmitCartao" />
         </div>
       </div>
 
