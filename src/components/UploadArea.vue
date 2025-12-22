@@ -428,6 +428,43 @@ const handleSave = async (updatedCartao: CartaoData) => {
   }
 };
 
+// Handle submit directly from CartaoItem without opening modal
+const handleSubmitCartao = async (cartao: CartaoData) => {
+  try {
+    // Find and remove the cartao from the array
+    const index = cartoes.value.findIndex(c =>
+      c.data === cartao.data &&
+      c.descricao === cartao.descricao &&
+      c.valor === cartao.valor
+    )
+    
+    if (index >= 0) {
+      cartoes.value.splice(index, 1)
+    }
+
+    // Show success message
+    uploadStatus.value = 'success'
+    uploadMessage.value = 'Lançamento enviado com sucesso!'
+
+    // Clear success message after 3 seconds
+    setTimeout(() => {
+      if (uploadStatus.value === 'success') {
+        uploadMessage.value = ''
+        uploadStatus.value = 'idle'
+      }
+    }, 3000)
+
+    // If no more cards, reset to initial state
+    if (cartoes.value.length === 0) {
+      clearFiles()
+    }
+
+  } catch (error: any) {
+    console.error('Erro ao salvar:', error)
+    alert('Erro ao salvar o lançamento: ' + (error?.message || 'Erro desconhecido'))
+  }
+}
+
 </script>
 <template>
 
@@ -451,6 +488,7 @@ const handleSave = async (updatedCartao: CartaoData) => {
           :key="index" 
           :cartao="cartao"
           @click="handleCartaoClick"
+          @submit="handleSubmitCartao"
         />
       </div>
     </div>
