@@ -644,7 +644,7 @@ const appVersion = import.meta.env.APP_VERSION || ''
           </div>
         </div>
 
-        <p class="shared-feedback">Este conteúdo foi compartilhado com seu PWA!</p>
+        <p class="shared-feedback">Este conteúdo foi compartilhado com Planilha Eh TUdo!</p>
       </div>
 
 

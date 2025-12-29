@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { CartaoData } from '../types'
+import { useAppendEntry } from '../composables/useAppendEntry'
 
 interface Props {
   cartao: CartaoData
@@ -12,6 +14,9 @@ interface Emits {
 
 defineProps<Props>()
 const emit = defineEmits<Emits>()
+
+const { appendEntry } = useAppendEntry()
+const isSubmitting = ref(false)
 
 // Função para formatar valor monetário
 const formatarValor = (valor: number): string => {
@@ -26,10 +31,27 @@ const handleClick = (cartao: CartaoData) => {
   emit('click', cartao)
 }
 
-// Emite evento de submit sem abrir o modal
-const handleSubmit = (event: Event, cartao: CartaoData) => {
+// Envia o cartão para a API
+const handleSubmit = async (event: Event, cartao: CartaoData) => {
   event.stopPropagation()
-  emit('submit', cartao)
+  
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  
+  try {
+    await appendEntry(cartao, {
+      onSuccess: () => {
+        emit('submit', cartao)
+      },
+      onError: (error) => {
+        alert(`Erro ao enviar lançamento: ${error.message}\n\nVerifique sua conexão e tente novamente.`)
+      }
+    })
+  } catch (error) {
+    // Erro já foi tratado no callback onError
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
