@@ -41,15 +41,6 @@ const isLoggedIn = computed(() => {
       <h1 class="app-title">Planilha Eh Tudo</h1>
 
     </nav>
-
-    <!-- Menu with Dashboard button -->
-    <nav v-if="isLoggedIn" class="app-menu">
-      <a :href="dashboardUrl" class="menu-button dashboard-button" rel="noopener noreferrer">
-        <span class="button-icon">📊</span>
-        <span class="button-text">Dashboard</span>
-      </a>
-    </nav>
-
     <main class="app-content">
       <router-view></router-view>
     </main>

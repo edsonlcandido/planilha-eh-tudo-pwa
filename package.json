@@ -1,7 +1,7 @@
 {
   "name": "Planilha Eh Tudo",
   "private": true,
-  "version": "0.12.29.1243",
+  "version": "0.01.12.2236",
   "type": "module",
   "scripts": {
     "dev": "vite",
