@@ -2,6 +2,7 @@
   "name": "Planilha Eh Tudo",
   "private": true,
   "version": "0.01.12.2313",
+
   "type": "module",
   "scripts": {
     "dev": "vite",
