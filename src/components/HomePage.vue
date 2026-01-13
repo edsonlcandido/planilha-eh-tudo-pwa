@@ -1112,16 +1112,14 @@ const appVersion = import.meta.env.APP_VERSION || ''
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  padding: 0.5rem;
+  padding: 0.4rem 0.25rem;
   text-decoration: none;
   color: var(--color-text-light);
   transition: color 0.2s ease, background-color 0.2s ease;
   border-radius: 8px;
-  min-width: 60px;
-  max-width: 80px;
-  height: 60px;
-  flex: 1;
-  overflow: hidden;
+  width: 70px;
+  height: 56px;
+  flex-shrink: 0;
 }
 
 .bottom-nav .nav-icon {
