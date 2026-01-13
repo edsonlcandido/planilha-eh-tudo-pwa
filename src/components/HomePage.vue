@@ -598,7 +598,7 @@ const appVersion = import.meta.env.APP_VERSION || ''
 
     <template v-else>
       <h1 class="page-title">Bem vindo ao nosso app!</h1>
-      <p class="page-description">Essa é nossa extensão para celular onde é possível enviar comprovantes e processar usando
+      <p class="page-description">Essa é nossa extensão para celular onde é possível enviar comprovantes, incluir lançamentos em linguagem natural usando
         agentes de IA.</p>
 
       <!-- PWA Install Button -->
