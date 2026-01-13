@@ -139,7 +139,7 @@ const currentUserId = computed(() => {
 
 
 
-const acceptedFileTypes = '.jpg,.jpeg,.pdf,.png';
+const acceptedFileTypes = '.jpg,.jpeg,.png';
 
 // Limpa todos os arquivos e estado
 const clearFiles = () => {
@@ -500,9 +500,9 @@ const handleSubmitCartao = async (cartao: CartaoData) => {
         <p>Selecione um documento para análise</p>
         <label class="file-select-button">
           Escolher arquivo
-          <input class="file-input" type="file" accept=".jpg,.jpeg,.pdf" @change="handleFileSelect">
+          <input class="file-input" type="file" accept=".jpg,.jpeg,.png" @change="handleFileSelect">
         </label>
-        <p class="file-types-hint">Formatos aceitos: JPG, PDF, PNG</p>
+        <p class="file-types-hint">Formatos aceitos: JPG, PNG</p>
       </div>
 
       <!-- Arquivo selecionado -->
