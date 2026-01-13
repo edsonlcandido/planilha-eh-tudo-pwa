@@ -572,8 +572,8 @@ const orcamentoInput = computed({
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
+  z-index: 10000;
+  padding: 1rem 1rem 90px 1rem;
   overflow-y: auto;
 }
 

@@ -1118,7 +1118,10 @@ const appVersion = import.meta.env.APP_VERSION || ''
   transition: color 0.2s ease, background-color 0.2s ease;
   border-radius: 8px;
   min-width: 60px;
+  max-width: 80px;
   height: 60px;
+  flex: 1;
+  overflow: hidden;
 }
 
 .bottom-nav .nav-icon {
