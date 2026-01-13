@@ -11,6 +11,12 @@ import type { CartaoData, SheetEntry, GetCategoriesResponse } from '../types'
 
 const router = useRouter()
 
+// Navigation URLs
+const dashboardUrl = import.meta.env.VITE_DASHBOARD_URL
+const lancamentosUrl = import.meta.env.VITE_DASHBOARD_LANCAMENTOS_URL
+const categoriasUrl = import.meta.env.VITE_DASHBOARD_CATEGORIAS_URL
+const celularUrl = import.meta.env.VITE_DASHBOARD_CELULAR_URL
+
 // PWA Install related states
 const deferredPrompt = ref<any>(null)
 const showInstallButton = ref(false)
@@ -396,6 +402,41 @@ const handleSave = async (updatedCartao: CartaoData) => {
   }
 }
 
+// Handle submit directly from CartaoItem without opening modal
+const handleSubmitCartao = async (cartao: CartaoData) => {
+  try {
+    // Find and remove the cartao from the array
+    const index = sharedCartoes.value.findIndex(c =>
+      c.data === cartao.data &&
+      c.descricao === cartao.descricao &&
+      c.valor === cartao.valor
+    )
+    
+    if (index >= 0) {
+      sharedCartoes.value.splice(index, 1)
+    }
+
+    // Show success message
+    uploadResponse.value = 'Lançamento enviado com sucesso!'
+
+    // Clear success message after 3 seconds
+    setTimeout(() => {
+      if (uploadResponse.value === 'Lançamento enviado com sucesso!') {
+        uploadResponse.value = null
+      }
+    }, 3000)
+
+    // If no more cards, reset to initial state
+    if (sharedCartoes.value.length === 0) {
+      resetToInitialState()
+    }
+
+  } catch (error: any) {
+    console.error('Erro ao salvar:', error)
+    alert('Erro ao salvar o lançamento: ' + (error?.message || 'Erro desconhecido'))
+  }
+}
+
 // Reset page to initial state
 const resetToInitialState = () => {
   sharedTitle.value = ''
@@ -557,7 +598,7 @@ const appVersion = import.meta.env.APP_VERSION || ''
 
     <template v-else>
       <h1 class="page-title">Bem vindo ao nosso app!</h1>
-      <p class="page-description">Essa é nossa extensão para celular para poder enviar comprovantes e processar usando
+      <p class="page-description">Essa é nossa extensão para celular onde é possível enviar comprovantes e processar usando
         agentes de IA.</p>
 
       <!-- PWA Install Button -->
@@ -604,12 +645,12 @@ const appVersion = import.meta.env.APP_VERSION || ''
             <h4 class="shared-cartoes-heading">Cartões Processados:</h4>
             <div class="cartoes-list">
               <CartaoItem v-for="(cartao, index) in sharedCartoes" :key="index" :cartao="cartao"
-                @click="handleSharedCartaoClick" />
+                @click="handleSharedCartaoClick" @submit="handleSubmitCartao" />
             </div>
           </div>
         </div>
 
-        <p class="shared-feedback">Este conteúdo foi compartilhado com seu PWA!</p>
+        <p class="shared-feedback">Este conteúdo foi compartilhado com Planilha Eh Tudo!</p>
       </div>
 
 
@@ -629,7 +670,7 @@ const appVersion = import.meta.env.APP_VERSION || ''
 
         <div v-if="sharedCartoes.length > 0" class="cartoes-list">
           <CartaoItem v-for="(cartao, index) in sharedCartoes" :key="index" :cartao="cartao"
-            @click="handleSharedCartaoClick" />
+            @click="handleSharedCartaoClick" @submit="handleSubmitCartao" />
         </div>
       </div>
 
@@ -680,11 +721,31 @@ const appVersion = import.meta.env.APP_VERSION || ''
       </div>
     </template>
   </div>
+
+  <!-- Bottom Navigation Menu -->
+  <nav class="bottom-nav">
+    <a :href="dashboardUrl" class="nav-link" title="Dashboard">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-text">Dashboard</span>
+    </a>
+    <a :href="lancamentosUrl" class="nav-link" title="Lançamentos">
+      <span class="nav-icon">📋</span>
+      <span class="nav-text">Lançamentos</span>
+    </a>
+    <a :href="categoriasUrl" class="nav-link" title="Categorias">
+      <span class="nav-icon">🏷️</span>
+      <span class="nav-text">Categorias</span>
+    </a>
+    <a :href="celularUrl" class="nav-link active" title="Celular">
+      <span class="nav-icon">📱</span>
+      <span class="nav-text">Celular</span>
+    </a>
+  </nav>
 </template>
 
 <style scoped>
 .home-page {
-  padding: 1.5rem 1rem;
+  padding: 1.5rem 1rem 80px 1rem;
   max-width: 800px;
   /* Constrain content width */
   margin: 0 auto;
@@ -1021,5 +1082,64 @@ const appVersion = import.meta.env.APP_VERSION || ''
   .page-title {
     font-size: 2.25rem;
   }
+}
+</style>
+
+<style>
+/* Global styles for bottom nav (not scoped) */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 70px;
+  background-color: var(--color-card-background);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 9999;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  padding: 0.5rem 0;
+  box-sizing: border-box;
+}
+
+.bottom-nav .nav-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  text-decoration: none;
+  color: var(--color-text-light);
+  transition: color 0.2s ease, background-color 0.2s ease;
+  border-radius: 8px;
+  min-width: 60px;
+  height: 60px;
+}
+
+.bottom-nav .nav-icon {
+  font-size: 1.5rem;
+  display: block;
+}
+
+.bottom-nav .nav-text {
+  font-size: 0.7rem;
+  font-weight: 500;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.bottom-nav .nav-link:hover {
+  color: var(--color-primary);
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.bottom-nav .nav-link.active {
+  color: var(--color-primary);
+  background-color: rgba(59, 130, 246, 0.15);
 }
 </style>

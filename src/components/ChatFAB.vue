@@ -169,9 +169,9 @@ const handleKeyDown = (event: KeyboardEvent) => {
 <style scoped>
 .chat-fab-container {
   position: fixed;
-  bottom: 24px;
+  bottom: 90px;
   right: 24px;
-  z-index: 1000;
+  z-index: 10000;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -324,7 +324,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
 /* Mobile responsive */
 @media (max-width: 768px) {
   .chat-fab-container {
-    bottom: 16px;
+    bottom: 90px;
     right: 16px;
   }
 

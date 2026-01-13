@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { CartaoData } from '../types'
+import { useAppendEntry } from '../composables/useAppendEntry'
 
 interface Props {
   cartao: CartaoData
@@ -7,10 +9,14 @@ interface Props {
 
 interface Emits {
   (e: 'click', cartao: CartaoData): void
+  (e: 'submit', cartao: CartaoData): void
 }
 
 defineProps<Props>()
 const emit = defineEmits<Emits>()
+
+const { appendEntry } = useAppendEntry()
+const isSubmitting = ref(false)
 
 // Função para formatar valor monetário
 const formatarValor = (valor: number): string => {
@@ -23,6 +29,29 @@ const formatarValor = (valor: number): string => {
 // Emite evento de clique
 const handleClick = (cartao: CartaoData) => {
   emit('click', cartao)
+}
+
+// Envia o cartão para a API
+const handleSubmit = async (event: Event, cartao: CartaoData) => {
+  event.stopPropagation()
+  
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  
+  try {
+    await appendEntry(cartao, {
+      onSuccess: () => {
+        emit('submit', cartao)
+      },
+      onError: (error) => {
+        alert(`Erro ao enviar lançamento: ${error.message}\n\nVerifique sua conexão e tente novamente.`)
+      }
+    })
+  } catch (error) {
+    // Erro já foi tratado no callback onError
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
@@ -54,6 +83,12 @@ const handleClick = (cartao: CartaoData) => {
         {{ cartao.observacao }}
       </div>
     </div>
+    
+    <div class="cartao-footer">
+      <button class="submit-button" @click="handleSubmit($event, cartao)">
+        ✓ Enviar
+      </button>
+    </div>
   </div>
 </template>
 
@@ -67,6 +102,8 @@ const handleClick = (cartao: CartaoData) => {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
 }
 
 .cartao-item:hover {
@@ -151,6 +188,37 @@ const handleClick = (cartao: CartaoData) => {
   font-size: 0.875rem;
   color: var(--color-text-light);
   line-height: 1.4;
+}
+
+.cartao-footer {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.submit-button {
+  background-color: var(--color-secondary);
+  color: white;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.submit-button:hover {
+  background-color: var(--color-hover-green);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.submit-button:active {
+  transform: translateY(0);
 }
 
 /* Responsivo para telas menores */

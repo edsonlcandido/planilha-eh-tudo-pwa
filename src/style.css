@@ -9,6 +9,7 @@
   --color-text-light: #6B7280; /* Lighter gray for secondary text */
   --color-border: #D1D5DB; /* Light gray for borders */
   --color-hover-blue: #2563EB; /* Darker blue for hover states */
+  --color-hover-green: #059669; /* Darker green for hover states */
   --color-hover-red: #DC2626; /* Darker red for hover states */
 }
 
