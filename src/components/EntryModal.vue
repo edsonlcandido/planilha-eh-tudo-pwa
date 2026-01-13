@@ -234,8 +234,8 @@ const convertToExcelEpoch = (dateString: string): number => {
 
 // Handle form submission
 const handleSubmit = async () => {
-  if (!formData.value.descricao || !formData.value.conta) {
-    alert('Por favor, preencha os campos obrigatórios: Descrição e Conta')
+  if (!formData.value.descricao || !formData.value.categoria || !formData.value.orcamento) {
+    alert('Por favor, preencha os campos obrigatórios: Descrição, Categoria e Orçamento')
     return
   }
   
@@ -425,7 +425,6 @@ const orcamentoInput = computed({
                 id="expenseDate"
                 v-model="dataInput"
                 class="form-control"
-                required
               />
             </div>
 
@@ -441,7 +440,6 @@ const orcamentoInput = computed({
                 @input="showContaAutocomplete = true"
                 class="form-control"
                 placeholder="Ex: Conta Corrente"
-                required
                 autocomplete="off"
               />
               <div v-if="showContaAutocomplete && filteredContas.length > 0" class="autocomplete-dropdown">
