@@ -19,7 +19,7 @@ const celularUrl = import.meta.env.VITE_DASHBOARD_CELULAR_URL
 
 // PWA Install related states
 const deferredPrompt = ref<any>(null)
-const showInstallButton = ref(false)
+const showInstallButton = ref(true)
 
 // Share Target related states
 const sharedTitle = ref('')
@@ -601,13 +601,7 @@ const appVersion = import.meta.env.APP_VERSION || ''
       <p class="page-description">Essa é nossa extensão para celular onde é possível enviar comprovantes, incluir lançamentos em linguagem natural usando
         agentes de IA.</p>
 
-      <!-- PWA Install Button -->
-      <div v-if="showInstallButton" class="install-section">
-        <button @click="installPWA" class="install-button">
-          📱 Instalar App
-        </button>
-        <p class="install-description">Instale este aplicativo em seu dispositivo para uma melhor experiência!</p>
-      </div>
+
 
       <div v-if="isSharedContentPresent()" class="shared-content-card">
         <h3 class="shared-content-title">Conteúdo Compartilhado Recebido!</h3>
@@ -676,33 +670,14 @@ const appVersion = import.meta.env.APP_VERSION || ''
 
       <UploadArea />
 
-      <!-- PWA Information Section -->
-      <div v-if="showInstallButton" class="pwa-info-section">
-        <h3 class="pwa-info-title">💡 PWA Instalação</h3>
-        <div class="pwa-info-content">
-          <p>Este aplicativo é um Progressive Web App (PWA) e pode ser instalado em seu dispositivo!</p>
-          <details class="install-instructions">
-            <summary>Como instalar manualmente:</summary>
-            <div class="instructions-content">
-              <h4>🔹 Chrome/Edge (Desktop):</h4>
-              <p>Procure o ícone de instalação (📱) na barra de endereços ou clique no menu de três pontos → "Instalar
-                app"</p>
 
-              <h4>🔹 Chrome/Edge (Mobile):</h4>
-              <p>Toque no menu de três pontos → "Adicionar à tela inicial" ou "Instalar app"</p>
-
-              <h4>🔹 Safari (iOS):</h4>
-              <p>Toque no botão de compartilhamento (📤) → "Adicionar à Tela de Início"</p>
-
-              <h4>🔹 Firefox:</h4>
-              <p>Procure o prompt de instalação ou use "Adicionar à tela inicial" no menu</p>
-            </div>
-          </details>
-        </div>
+            <!-- PWA Install Button -->
+      <div v-if="showInstallButton" class="install-section">
+        <button @click="installPWA" class="install-button">
+          📱 Instalar App
+        </button>
+        <p class="install-description">Instale este aplicativo em seu dispositivo para uma melhor experiência!</p>
       </div>
-
-
-
       <!-- Modal de edição para cartões compartilhados -->
       <EntryModal :show="showModal" :cartao="selectedCartao" :contas="contas" :categorias="categorias"
         @close="handleModalClose" @save="handleSave" />
