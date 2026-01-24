@@ -20,6 +20,7 @@ const celularUrl = import.meta.env.VITE_DASHBOARD_CELULAR_URL
 // PWA Install related states
 const deferredPrompt = ref<any>(null)
 const showInstallButton = ref(true)
+const isStandalone = ref(false)
 
 // Share Target related states
 const sharedTitle = ref('')
@@ -119,21 +120,61 @@ const handleBeforeInstallPrompt = (e: Event) => {
 }
 
 const installPWA = async () => {
-  if (!deferredPrompt.value) {
+  // Se o prompt nativo estiver disponível, usa ele
+  if (deferredPrompt.value) {
+    deferredPrompt.value.prompt()
+    const { outcome } = await deferredPrompt.value.userChoice
+    console.log(`User response to the install prompt: ${outcome}`)
+    deferredPrompt.value = null
     return
   }
 
-  // Show the install prompt
-  deferredPrompt.value.prompt()
+  // Detecta o navegador e sistema operacional
+  const userAgent = navigator.userAgent.toLowerCase()
+  const isIOS = /iphone|ipad|ipod/.test(userAgent)
+  const isSafari = /safari/.test(userAgent) && !/chrome/.test(userAgent)
+  const isChrome = /chrome/.test(userAgent) && !/edge/.test(userAgent)
+  const isEdge = /edg/.test(userAgent)
+  const isFirefox = /firefox/.test(userAgent)
+  const isSamsung = /samsungbrowser/.test(userAgent)
+  const isAndroid = /android/.test(userAgent)
 
-  // Wait for the user to respond to the prompt
-  const { outcome } = await deferredPrompt.value.userChoice
+  let instructions = 'Para instalar o aplicativo:\n\n'
 
-  console.log(`User response to the install prompt: ${outcome}`)
+  if (isIOS && isSafari) {
+    instructions += '1. Toque no ícone de Compartilhar (quadrado com seta para cima) na barra de navegação\n'
+    instructions += '2. Role para baixo e toque em "Adicionar à Tela de Início"\n'
+    instructions += '3. Toque em "Adicionar" no canto superior direito'
+  } else if (isIOS && isChrome) {
+    instructions += 'No Chrome para iOS, a instalação de PWA é limitada.\n'
+    instructions += 'Por favor, abra este site no Safari e siga as instruções:\n\n'
+    instructions += '1. Toque em Compartilhar\n'
+    instructions += '2. Toque em "Adicionar à Tela de Início"'
+  } else if (isAndroid && isSamsung) {
+    instructions += '1. Toque no menu (três linhas ou três pontos)\n'
+    instructions += '2. Toque em "Adicionar página a" ou "Instalar"\n'
+    instructions += '3. Selecione "Tela inicial"'
+  } else if (isAndroid && isChrome) {
+    instructions += '1. Toque no menu (⋮) no canto superior direito\n'
+    instructions += '2. Toque em "Instalar aplicativo" ou "Adicionar à tela inicial"\n'
+    instructions += '3. Confirme a instalação'
+  } else if (isEdge) {
+    instructions += '1. Clique no menu (⋯) no canto superior direito\n'
+    instructions += '2. Clique em "Aplicativos" > "Instalar este site como aplicativo"\n'
+    instructions += '3. Confirme a instalação'
+  } else if (isChrome) {
+    instructions += '1. Clique no menu (⋮) no canto superior direito\n'
+    instructions += '2. Clique em "Instalar Planilha Eh Tudo..."\n'
+    instructions += '3. Confirme a instalação'
+  } else if (isFirefox) {
+    instructions += 'O Firefox não suporta instalação nativa de PWA.\n'
+    instructions += 'Por favor, use Chrome, Edge ou Safari para instalar.'
+  } else {
+    instructions += '• No Chrome/Edge: Clique no menu (⋮) e selecione "Instalar aplicativo"\n'
+    instructions += '• No Safari (iOS): Toque em "Compartilhar" e depois "Adicionar à Tela de Início"'
+  }
 
-  // Clear the deferredPrompt so it can only be used once
-  deferredPrompt.value = null
-  showInstallButton.value = false
+  alert(instructions)
 }
 
 // --- Share Target Handling Logic ---
@@ -465,6 +506,10 @@ const handleLaunchParams = async (launchParams: { files?: FileSystemFileHandle[]
 };
 
 onMounted(async () => {
+  // Verificar se já está instalado (modo standalone)
+  isStandalone.value = window.matchMedia('(display-mode: standalone)').matches || 
+                       (window.navigator as any).standalone === true
+
   // Verificar token antes de continuar
   await verificarToken()
 
@@ -473,6 +518,13 @@ onMounted(async () => {
 
   // Handle PWA install prompt
   window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+  
+  // Ouvir evento de instalação concluída
+  window.addEventListener('appinstalled', () => {
+    console.log('PWA instalado com sucesso!')
+    isStandalone.value = true
+    deferredPrompt.value = null
+  })
 
   // Check if this is a share target redirect
   const urlParams = new URLSearchParams(window.location.search)
@@ -672,11 +724,15 @@ const appVersion = import.meta.env.APP_VERSION || ''
 
 
             <!-- PWA Install Button -->
-      <div v-if="showInstallButton" class="install-section">
-        <button @click="installPWA" class="install-button">
+      <div class="install-section">
+        <button v-if="!isStandalone" @click="installPWA" class="install-button">
           📱 Instalar App
         </button>
-        <p class="install-description">Instale este aplicativo em seu dispositivo para uma melhor experiência!</p>
+        <div v-else class="installed-badge">
+          ✅ App instalado!
+        </div>
+        <p v-if="!isStandalone" class="install-description">Instale para compartilhar imagens diretamente!</p>
+        <p v-else class="install-description">Agora você pode compartilhar imagens diretamente para o app!</p>
       </div>
       <!-- Modal de edição para cartões compartilhados -->
       <EntryModal :show="showModal" :cartao="selectedCartao" :contas="contas" :categorias="categorias"
@@ -805,6 +861,16 @@ const appVersion = import.meta.env.APP_VERSION || ''
 
 .install-button:active {
   transform: translateY(0);
+}
+
+.installed-badge {
+  background-color: #10b981;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 25px;
+  font-size: 1rem;
+  font-weight: 600;
+  display: inline-block;
 }
 
 .install-description {
